@@ -1,14 +1,37 @@
+"""
+Aquí está la configuración del servidor que corre Flask y conecta,
+usando socket.io, con el cliente para hacer una página web actualizable
+en tiempo real.
+"""
+
+#: eventlet debe ser importado primero
 import eventlet
+#: La función monkey_patch modifica clases de la librería estándar, por
+#: tanto se tiene que ejecutar antes de importar alguna otra cosa.
 eventlet.monkey_patch()
+
+import logging
+from multiprocessing import Process
+from threading import Thread
+
 from flask import Flask, render_template, copy_current_request_context
 from flask_socketio import SocketIO, emit
-from threading import Thread
+
 import zmq
-from multiprocessing import Process
+
 
 thread = None
 
+LOGGER_NAME = "Flask server"
+LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
+logger = logging.getLogger(LOGGER_NAME)
+logger.setLevel(logging.DEBUG)
+logging.basicConfig(format=LOGGER_FORMAT)
+
+logger.info("bep")
+
 app = Flask(__name__)
+app.config.DEBUG = True
 #app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode="eventlet")
 
@@ -18,26 +41,25 @@ def index():
 
 @socketio.on("connect")
 def say_hello():
-    print("USER CONNECTED")
+    logger.debug("USER CONNECTED")
     global thread
     if not thread:
         @copy_current_request_context
         def f():
-            print("Binding socket...")
+            logger.debug("Binding socket...")
             poller = zmq.Poller()
             context = zmq.Context()
             socket = context.socket(zmq.REP)
             socket.bind("{}://{}:{}".format("tcp", "*", 5560))
             poller.register(socket, zmq.POLLIN)
-            print("socket is binded")
+            logger.debug("socket is binded")
             while True:
                 eventlet.sleep(2)
                 try:
                     messages = dict(poller.poll())
-                    print(messages)
                     if socket in messages:
                         msg = socket.recv()
-                        print(msg)
+                        logger.debug("Received message on REP socket " + msg.decode())
                         socket.send(b"READY")
                         emit("message", msg.decode())
                 except Exception as e:
@@ -48,7 +70,7 @@ def say_hello():
 
 @socketio.on("message")
 def blep(message):
-    print(message)
+    logger.info("Message received: \"" + message + "\"")
 
 
 if __name__ == '__main__':
