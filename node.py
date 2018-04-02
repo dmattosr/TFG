@@ -1,9 +1,12 @@
 """
-Node.py
+.. todo::
+    - Quitar el hardcoding de la dirección del servidor de descubrimiento
+    - Eliminar la excepción de interrupción del hilo de mensajes
 
 En este fichero se encuentra el nodo comunicativo de la blockchain.
-Estos nodos componen la red P2P, siendo efectivamente los «peers» de
+Estos nodos componen la red P2P, siendo efectivamente los *peers* de
 esta.
+
 """
 
 import json
@@ -21,14 +24,16 @@ CONNECT_FORMAT_STR = "{protocol}://{address}:{port}"
 PROTOCOL = "tcp"
 
 class Node:
+    """
+    La clase nodo
+    """
 
     def __init__(self, port):
-        self.uuid = uuid4()
+        self.uuid = "-".join([str(field) for field in uuid4().fields])
         self.context = zmq.Context()
         #: Elige un puerto efímero aleatorio
         # self.port = randint(49152, 65535)
         self.port = str(port)
-        self.message_queue = []
         #self.p = Process(target=self.handle_messages, args=(self.message_queue,))
         self.p = Thread(target=self.handle_messages)
         self.p.start()
@@ -37,25 +42,25 @@ class Node:
         self.t.start()
         self.peers = []
 
-    def jsonize(self):
-        # TODO: En realidad esto es más convertir a dict que a json,
-        # las funciones que hacen referencia a json supongo deberían
-        # devolver objetos json de una vez.
+    def deserialize(self) -> dict:
+        """
+        Devuelve un diccionario de Python con la información apta para
+        ser deserializada a algún formato (principalmente JSON).
+        """
         return {
             "uuid": self.uuid,
-            "port": self.port
+            "port": self.port,
+            "info": self.connection_information(),
         }
 
-    def add_peer(self, address, port):
-        self.peers.append((address, port))
-
-    def __str__(self):
-        return self.__repr__()
-
-    def __repr__(self):
-        return pformat(self.jsonize(), indent=1, width=80)
-
     def send_message(self, message: bytes, address: str, port: int):
+        """
+        Envía un mensaje en estilo de comunicación *non-blocking*
+        mediante un socket de tipo *dealer* de ZeroMQ.
+
+        :parámetros:
+            - :message (:var bytes:): El mensaje a transmitir
+        """
         socket = self.context.socket(zmq.DEALER)
         #socket.connect("tcp://127.0.0.1:5555")# + str(self.port))
         socket.connect(CONNECT_FORMAT_STR.format(
@@ -68,6 +73,20 @@ class Node:
         #socket.recv()
         socket.close()
 
+    def connection_information(self) -> dict:
+        return {
+            "ip_address": "127.0.0.1", # TODO: Cambiar
+            "rep_port": self.port,
+            "sub_port": str(int(self.port) + 1),
+        }
+
+    def send_info(self, address: str, port: int):
+        """
+        Envía información sobre sí mismo por la red
+        """
+        #self.send_message(json.dumps(self.connection_information()).encode(), address, port)
+        self.send_message(b"PEER " + json.dumps(self.deserialize()).encode(), address, port)
+
     def handle_messages(self):
         rep_socket = self.context.socket(zmq.REP)
         rep_socket.bind(CONNECT_FORMAT_STR.format(
@@ -76,10 +95,15 @@ class Node:
             port=self.port
         ))
         sub_socket = self.context.socket(zmq.SUB)
-        sub_socket.bind(CONNECT_FORMAT_STR.format(
+        """sub_socket.bind(CONNECT_FORMAT_STR.format(
             protocol=PROTOCOL,
             address="*",
             port=str(int(self.port) + 1)
+        ))"""
+        sub_socket.connect(CONNECT_FORMAT_STR.format(
+            protocol=PROTOCOL,
+            address="127.0.0.1",
+            port="5561"
         ))
         sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
         poller = zmq.Poller()
@@ -98,7 +122,11 @@ class Node:
                     self.update_message_queue(message)
                 if sub_socket in messages:
                     message = sub_socket.recv()
-                    print("SUB: " + str(message))
+                    print(f"SUB: " + str(message))
+                    if message[0:4] == b"PEER":
+                        peer = json.loads(message[4:])
+                        if peer["uuid"] != self.uuid:
+                            self.peers.append(peer)
         except Exception as e: # TODO:buscar nombre de la interrupción
             print(e)
         except KeyboardInterrupt as e:
@@ -114,24 +142,22 @@ class Node:
                     for peer in self.peers:
                         socket.connect(CONNECT_FORMAT_STR.format(
                             protocol=PROTOCOL,
-                            address=peer[0],
-                            port=peer[1]
+                            address=peer["info"]["ip_address"],
+                            port=5561#peer["info"]["sub_port"]
                         ))
                         socket.send(to_bytes(message))
                 socket.close()
             sleep(0.5)
 
-    def show_messages(self):
-        print(self.message_queue)
+    def __str__(self):
+        return self.__repr__()
 
-    def broadcast_message(self, broadcast_address):
-        print(":)")
+    def __repr__(self):
+        return pformat(self.deserialize(), indent=1, width=80)
 
     def __del__(self):
         self.p.join()
 
-    def update_message_queue(self, message):
-        self.message_queue.append(message)
 
 def to_bytes(message: str) -> bytes:
     if isinstance(message, bytes):

@@ -3,7 +3,7 @@ Aquí está la configuración del servidor que corre Flask y conecta,
 usando socket.io, con el cliente para hacer una página web actualizable
 en tiempo real.
 
-.. todo: Orientarlo a objetos, tal vez
+.. todo:: Orientarlo a objetos, tal vez
 """
 
 #: eventlet debe ser importado primero
@@ -57,18 +57,20 @@ def on_connect():
             context = zmq.Context()
             socket = context.socket(zmq.REP)
             socket.bind("{}://{}:{}".format("tcp", "*", 5560))
+            pub_socket = context.socket(zmq.PUB)
+            pub_socket.bind("{}://{}:{}".format("tcp", "*", 5561))
             poller.register(socket, zmq.POLLIN)
             logger.debug("socket is binded")
             while True:
                 eventlet.sleep(2)
                 try:
                     messages = dict(poller.poll())
-                    logger.debug(messages)
                     if socket in messages:
                         msg = socket.recv()
                         logger.debug("Received message on REP socket " + msg.decode())
                         socket.send(b"READY")
                         emit("message", msg.decode(), broadcast=True)
+                        pub_socket.send(msg)
                     else:
                         eventlet.sleep(2)
                 except Exception as e:

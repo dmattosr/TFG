@@ -12,7 +12,18 @@ Bienvenidas y bienvenidos a la página de documentación para mi Trabajo de Fin 
    :maxdepth: 2
    :caption: Contents:
 
+.. _server:
+
+Servidor
+--------
 .. automodule:: server
+   :members:
+
+.. _node:
+
+Nodo
+----
+.. automodule:: node
    :members:
 
 
