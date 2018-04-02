@@ -2,6 +2,8 @@
 Aquí está la configuración del servidor que corre Flask y conecta,
 usando socket.io, con el cliente para hacer una página web actualizable
 en tiempo real.
+
+.. todo: Orientarlo a objetos, tal vez
 """
 
 #: eventlet debe ser importado primero
@@ -19,7 +21,6 @@ from flask_socketio import SocketIO, emit
 
 import zmq
 
-
 thread = None
 
 LOGGER_NAME = "Flask server"
@@ -28,19 +29,24 @@ logger = logging.getLogger(LOGGER_NAME)
 logger.setLevel(logging.DEBUG)
 logging.basicConfig(format=LOGGER_FORMAT)
 
-logger.info("bep")
-
 app = Flask(__name__)
 app.config.DEBUG = True
 #app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode="eventlet")
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
+
 @socketio.on("connect")
-def say_hello():
+def on_connect():
+    """
+    Desde que se conecta un usuario se empieza un thread. Dicho hilo
+    corre el nodo zeromq que maneja la comunicación hacia los nodos
+    peer.
+    """
     logger.debug("USER CONNECTED")
     global thread
     if not thread:
@@ -57,19 +63,25 @@ def say_hello():
                 eventlet.sleep(2)
                 try:
                     messages = dict(poller.poll())
+                    logger.debug(messages)
                     if socket in messages:
                         msg = socket.recv()
                         logger.debug("Received message on REP socket " + msg.decode())
                         socket.send(b"READY")
-                        emit("message", msg.decode())
+                        emit("message", msg.decode(), broadcast=True)
+                    else:
+                        eventlet.sleep(2)
                 except Exception as e:
                     print(e)
+
         socketio.start_background_task(target=f)
+        #p = Process(target=f)
+        #p.start()
         thread = True
 
 
 @socketio.on("message")
-def blep(message):
+def log_message(message):
     logger.info("Message received: \"" + message + "\"")
 
 

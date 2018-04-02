@@ -35,6 +35,7 @@ class Node:
         self.publish_queue = []
         self.t = Thread(target=self.publish_thread)
         self.t.start()
+        self.peers = []
 
     def jsonize(self):
         # TODO: En realidad esto es más convertir a dict que a json,
@@ -44,6 +45,9 @@ class Node:
             "uuid": self.uuid,
             "port": self.port
         }
+
+    def add_peer(self, address, port):
+        self.peers.append((address, port))
 
     def __str__(self):
         return self.__repr__()
@@ -89,10 +93,12 @@ class Node:
                 messages = dict(poller.poll())
                 if rep_socket in messages:
                     message = rep_socket.recv()
-                    print("REP: " + message)
+                    print("REP: " + str(message))
+                    rep_socket.send(b"READY")
+                    self.update_message_queue(message)
                 if sub_socket in messages:
                     message = sub_socket.recv()
-                    print("SUB: " + message)
+                    print("SUB: " + str(message))
         except Exception as e: # TODO:buscar nombre de la interrupción
             print(e)
         except KeyboardInterrupt as e:
@@ -103,16 +109,17 @@ class Node:
         while True:
             if self.publish_queue:
                 socket = self.context.socket(zmq.PUB)
-                socket.bind(CONNECT_FORMAT_STR.format(
-                    protocol=PROTOCOL,
-                    address="*",
-                    port=str(int(self.port)+2)
-                ))
                 while self.publish_queue:
                     message = self.publish_queue.pop()
-                    print(message)
-                    socket.send(to_bytes(message))
+                    for peer in self.peers:
+                        socket.connect(CONNECT_FORMAT_STR.format(
+                            protocol=PROTOCOL,
+                            address=peer[0],
+                            port=peer[1]
+                        ))
+                        socket.send(to_bytes(message))
                 socket.close()
+            sleep(0.5)
 
     def show_messages(self):
         print(self.message_queue)

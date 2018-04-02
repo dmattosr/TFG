@@ -1,5 +1,12 @@
+# virtualenv
 bin
 include
 lib
 pip-selfcheck.json
 share
+
+# sphinx
+doc/_build
+
+# python
+__pycache__
