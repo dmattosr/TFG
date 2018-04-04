@@ -3,7 +3,10 @@ Aquí está el conjunto de funciones de criptografía relacionados a la
 encripción ElGamal homomórfica y un conjunto de utilidades que permiten
 trabajar con ella
 """
+
 from math import ceil, floor, sqrt
+
+from gmpy2 import is_prime
 
 from Crypto.PublicKey import ElGamal
 from Crypto import Random
@@ -14,8 +17,8 @@ ELGAMAL_KEYSIZE = 2048
 
 def discrete_log(a, b, n):
     """
-    Para un Grupo Ciclico G de orden n, con generador a y un elemento b
-    Devuelve un número x satisfaciendo $a^x=b$.
+    Para un Grupo Ciclico G de orden n, con generador a y un elemento b,
+    devuelve un número x satisfaciendo :math:`a^x=b`.
     """
     
     m = ceil(sqrt(n))
@@ -35,11 +38,19 @@ def discrete_log(a, b, n):
         print("y: ", y)
     return "-1"
 
-def multiplicative_inverse(n, modulo):
+def multiplicative_inverse(n, m):
     """
-    Computa $n^{-1} (mod n)$ usando el algoritmo de Gauss
-    Si el modulo no es primo no sirve, verificar de alguna manera
+    Computa :math:`n^{-1} \\pmod{m}` usando el algoritmo de Gauss. Si
+    el modulo no es primo no sirve.
+
+    :param n: El número n.
+    :param m: El módulo.
+    :returns: El inverso multiplicativo de :math:`n \\pmod{m}`.
+    :raises ValueError: Si el modulo no es primo.
     """
+    if not is_prime(modulo):
+        return -1
+        raise ValueError("El módulo tiene que ser primo")
     num = 1
     denum = n
     for i in range(modulo):
@@ -49,13 +60,6 @@ def multiplicative_inverse(n, modulo):
         if denum == 1:
             return num
     return -1
-
-def is_prime(number) -> bool:
-    """
-    Determina si un número es primo basado en un método probabilístico
-    ..todo: Implementar con método probabilístico
-    """
-    return True
 
 def f():
     keysize = 8
