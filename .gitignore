@@ -10,3 +10,5 @@ doc/_build
 
 # python
 __pycache__
+
+*.swp

@@ -16,7 +16,8 @@ import logging
 from multiprocessing import Process
 from threading import Thread
 
-from flask import Flask, render_template, copy_current_request_context
+from flask import (Flask, render_template, copy_current_request_context,
+    request, jsonify)
 from flask_socketio import SocketIO, emit
 
 import zmq
@@ -39,6 +40,11 @@ socketio = SocketIO(app, async_mode="eventlet")
 def index():
     return render_template("index.html")
 
+
+@app.route("/send", methods=("GET", "POST"))
+def send():
+    print(request.args.get("election_id", "0", type=str))
+    return jsonify(ticket="bep")
 
 @socketio.on("connect")
 def on_connect():

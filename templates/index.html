@@ -4,8 +4,12 @@
         <script src="https://code.jquery.com/jquery-3.3.1.js">
         </script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
+        <script type=text/javascript>
+              $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+        </script>
         <script>
             $(function() {
+                // SOCKETS
                 var socket = io('http://' + document.domain + ':' + location.port);
                 socket.transport = ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'];
                 socket.on('connect', function() {
@@ -27,13 +31,47 @@
                 socket.on('node_message', function(msg) {
                     $("#placeholder").html("<b>" + msg + "</b>")
                 });
+
+                // AJAX
+
+                //alert($SCRIPT_ROOT);
+                $("#voting").submit(function(event) {
+                    // TODO: En un futuro url_for dará problemas, ya que no es dinámico
+                    $.getJSON('{{ url_for("send") }}',
+						{election_id: $('input[name="election-id"]').val()},
+						function(data) {
+							alert(JSON.stringify(data));
+						}
+                    )
+                    .done(function() {
+                        alert("done");
+                    })
+                    .fail(function() {
+                        alert(":(");
+                    })
+                    .always(function() {
+                        alert("algo por lo menos");
+                    });
+                    alert("val te quiero un montononón");
+                });
+
             });
+            function handleForm() {
+                console.log("form handled ;^)");
+            }
 		</script>
     </head>
     <body>
-        <h1>Prueba de sockets</h1>
+        <h1>HOLITAS</h1>
         <div id="conn_status">Not Connected</div>
-        <div id="placeholder" style="width:600px;height:300px;"></div>
+        <div id="placeholder" style="width:600px;height:300px;font-size:72pt;"></div>
+        <div id="form">
+            <form id="voting" action="javascript:handleForm()">
+                Election id: <input type="text" name="election-id"><br>
+                Option id: <input type="text" name="option-id"><br>
+                <input type="submit" value="Votar">
+            </form>
+        </div>
     </body>
 
 </html>

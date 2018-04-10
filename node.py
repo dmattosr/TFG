@@ -58,8 +58,7 @@ class Node:
         Envía un mensaje en estilo de comunicación *non-blocking*
         mediante un socket de tipo *dealer* de ZeroMQ.
 
-        :parámetros:
-            - :message (:var bytes:): El mensaje a transmitir
+        :param message: El mensaje a transmitir
         """
         socket = self.context.socket(zmq.DEALER)
         #socket.connect("tcp://127.0.0.1:5555")# + str(self.port))
@@ -80,7 +79,7 @@ class Node:
             "sub_port": str(int(self.port) + 1),
         }
 
-    def send_info(self, address: str, port: int):
+    def send_info(self, address: str, port: int, **kwargs):
         """
         Envía información sobre sí mismo por la red
         """
