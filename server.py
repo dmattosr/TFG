@@ -43,6 +43,14 @@ def index():
 
 @app.route("/send", methods=("GET", "POST"))
 def send():
+    """
+    .. todo::
+        Un montón de cosas:
+        * Hay que verificar si el voto es correcto, pertenece a una
+        votación en marcha, etc.
+        * Hay que mandar el voto emitido a los nodos una vez se haga
+        esta verificación.
+    """
     election_id = request.args.get("election_id", "0", type=str)
     return jsonify(ticket=election_id)
 
