@@ -37,22 +37,13 @@
                 //alert($SCRIPT_ROOT);
                 $("#voting").submit(function(event) {
                     // TODO: En un futuro url_for dará problemas, ya que no es dinámico
-                    $.getJSON('{{ url_for("send") }}',
+                    $.post('{{ url_for("send") }}',
 						{election_id: $('input[name="election-id"]').val()},
 						function(data) {
-							alert(JSON.stringify(data));
-						}
-                    )
-                    .done(function() {
-                        alert("done");
-                    })
-                    .fail(function() {
-                        alert(":(");
-                    })
-                    .always(function() {
-                        alert("algo por lo menos");
-                    });
-                    alert("val te quiero un montononón");
+							alert("POST" + JSON.stringify(data));
+						},
+                        'json'
+                    ).done(function() {alert("POST done!")});
                 });
 
             });

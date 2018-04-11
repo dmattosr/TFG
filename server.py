@@ -43,8 +43,8 @@ def index():
 
 @app.route("/send", methods=("GET", "POST"))
 def send():
-    print(request.args.get("election_id", "0", type=str))
-    return jsonify(ticket="bep")
+    election_id = request.args.get("election_id", "0", type=str)
+    return jsonify(ticket=election_id)
 
 @socketio.on("connect")
 def on_connect():
@@ -82,7 +82,7 @@ def on_connect():
                 except Exception as e:
                     print(e)
 
-        socketio.start_background_task(target=f)
+        #socketio.start_background_task(target=f)
         #p = Process(target=f)
         #p.start()
         thread = True
