@@ -1,5 +1,7 @@
 .. _crypto:
 
-Aquí van cositas
+Criptografía
+============
 
-    BEP
+.. automodule:: crypto
+   :members:

@@ -13,7 +13,7 @@
                 var socket = io('http://' + document.domain + ':' + location.port);
                 socket.transport = ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'];
                 socket.on('connect', function() {
-                    $('#conn_status').html('<b>Connected: ' + socket.transport + '</b>');
+                    $('#conn_status').html('<b>Connected!</b>');
                     socket.emit("message", "CONNECTION ESTABLISHED")
                 });
                 socket.on('error', function() {

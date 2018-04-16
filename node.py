@@ -34,18 +34,18 @@ class Node:
         #: Elige un puerto efímero aleatorio
         # self.port = randint(49152, 65535)
         self.port = str(port)
-        #self.p = Process(target=self.handle_messages, args=(self.message_queue,))
-        self.p = Thread(target=self.handle_messages)
+        #self.p = Process(target=self._handle_messages, args=(self.message_queue,))
+        self.p = Thread(target=self._handle_messages)
         self.p.start()
         self.publish_queue = []
         self.t = Thread(target=self.publish_thread)
         self.t.start()
         self.peers = []
 
-    def deserialize(self) -> dict:
+    def serialize(self) -> dict:
         """
         Devuelve un diccionario de Python con la información apta para
-        ser deserializada a algún formato (principalmente JSON).
+        ser serializada a algún formato (principalmente JSON).
         """
         return {
             "uuid": self.uuid,
@@ -61,7 +61,6 @@ class Node:
         :param message: El mensaje a transmitir
         """
         socket = self.context.socket(zmq.DEALER)
-        #socket.connect("tcp://127.0.0.1:5555")# + str(self.port))
         socket.connect(CONNECT_FORMAT_STR.format(
             protocol=PROTOCOL,
             address=address,
@@ -84,9 +83,13 @@ class Node:
         Envía información sobre sí mismo por la red
         """
         #self.send_message(json.dumps(self.connection_information()).encode(), address, port)
-        self.send_message(b"PEER " + json.dumps(self.deserialize()).encode(), address, port)
+        self.send_message(b"PEER " + json.dumps(self.serialize()).encode(), address, port)
 
-    def handle_messages(self):
+    def _handle_messages(self):
+        """
+        Este método empieza a correr en un nuevo hilo al crear una
+        instancia del nodo, 
+        """
         rep_socket = self.context.socket(zmq.REP)
         rep_socket.bind(CONNECT_FORMAT_STR.format(
             protocol=PROTOCOL,
@@ -94,11 +97,6 @@ class Node:
             port=self.port
         ))
         sub_socket = self.context.socket(zmq.SUB)
-        """sub_socket.bind(CONNECT_FORMAT_STR.format(
-            protocol=PROTOCOL,
-            address="*",
-            port=str(int(self.port) + 1)
-        ))"""
         sub_socket.connect(CONNECT_FORMAT_STR.format(
             protocol=PROTOCOL,
             address="127.0.0.1",
@@ -110,9 +108,6 @@ class Node:
         poller.register(sub_socket, zmq.POLLIN)
         try:
             while True:
-                #message = socket.recv()
-                #socket.send(b"READY")
-                #self.update_message_queue(message)
                 messages = dict(poller.poll())
                 if rep_socket in messages:
                     message = rep_socket.recv()
@@ -152,7 +147,7 @@ class Node:
         return self.__repr__()
 
     def __repr__(self):
-        return pformat(self.deserialize(), indent=1, width=80)
+        return pformat(self.serialize(), indent=1, width=80)
 
     def __del__(self):
         self.p.join()

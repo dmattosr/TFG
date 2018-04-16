@@ -15,6 +15,7 @@ eventlet.monkey_patch()
 import logging
 from multiprocessing import Process
 from threading import Thread
+from pprint import pformat
 
 from flask import (Flask, render_template, copy_current_request_context,
     request, jsonify)
@@ -46,12 +47,18 @@ def send():
     """
     .. todo::
         Un montón de cosas:
-        * Hay que verificar si el voto es correcto, pertenece a una
-        votación en marcha, etc.
-        * Hay que mandar el voto emitido a los nodos una vez se haga
-        esta verificación.
+
+            - Hay que verificar si el voto es correcto, pertenece a una
+              votación en marcha, etc.
+            - Hay que mandar el voto emitido a los nodos una vez se haga
+              esta verificación.
+
     """
+    print(pformat(request.args))
     election_id = request.args.get("election_id", "0", type=str)
+    #: XXX: Inicio bloque de transmisión
+
+    #: XXX: Fin bloque de transmisión
     return jsonify(ticket=election_id)
 
 @socketio.on("connect")

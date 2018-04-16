@@ -10,30 +10,11 @@ Bienvenidas y bienvenidos a la página de documentación para mi Trabajo de Fin 
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Contenidos:
 
-.. .. _node:
-
-..    Nodo
-    ----
-    .. automodule:: node
-       :members:
-
-.. _crypto:
-
-Crypto
-------
-.. automodule:: crypto
-   :members:
-
-
-.. _server:
-
-Servidor
---------
-
-.. automodule:: server
-   :members:
+   server
+   crypto
+   node
 
 Índices y tablas
 ==================
