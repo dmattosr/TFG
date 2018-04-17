@@ -1,9 +1,8 @@
 <html>
     <head>
 		<meta charset="utf-8"/>
-        <script src="https://code.jquery.com/jquery-3.3.1.js">
-        </script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
+        <script src="{{ url_for('static', filename='jquery-3.3.1.js') }}"></script>
+        <script src="{{ url_for('static', filename='socket.io.js') }}"></script>
         <script type=text/javascript>
               $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
         </script>
@@ -23,13 +22,10 @@
                     $('#conn_status').html('<b>Closed</b>');
                 });
                 socket.on('message', function(msg) {
-                    $("#placeholder").html("<b>" + msg + "</b>")
-                    //socket.emit("message", "BLEP")
-                    //var d = $.parseJSON(msg);
-                    //console.log(d);
+                    $("#placeholder").html("<b>" + JSON.stringify(msg) + "</b>")
                 });
-                socket.on('node_message', function(msg) {
-                    $("#placeholder").html("<b>" + msg + "</b>")
+                socket.on('json', function(msg) {
+                    $("#placeholder").html("<b>" + JSON.stringify(JSON.parse(msg), space="\t") + "</b>")
                 });
 
                 // AJAX
@@ -55,7 +51,7 @@
     <body>
         <h1>HOLITAS</h1>
         <div id="conn_status">Not Connected</div>
-        <div id="placeholder" style="width:600px;height:300px;font-size:72pt;"></div>
+        <div id="placeholder" style="width:600px;height:300px;font-size:110%;"></div>
         <div id="form">
             <form id="voting" action="javascript:handleForm()">
                 Election id: <input type="text" name="election-id"><br>

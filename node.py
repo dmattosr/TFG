@@ -49,8 +49,9 @@ class Node:
         """
         return {
             "uuid": self.uuid,
-            "port": self.port,
-            "info": self.connection_information(),
+            "ip_address": "127.0.0.1", # TODO: Cambiar a dinámico
+            "rep_port": self.port,
+            "sub_port": str(int(self.port) + 1),
         }
 
     def send_message(self, message: bytes, address: str, port: int):
@@ -71,18 +72,10 @@ class Node:
         #socket.recv()
         socket.close()
 
-    def connection_information(self) -> dict:
-        return {
-            "ip_address": "127.0.0.1", # TODO: Cambiar
-            "rep_port": self.port,
-            "sub_port": str(int(self.port) + 1),
-        }
-
     def send_info(self, address: str, port: int, **kwargs):
         """
         Envía información sobre sí mismo por la red
         """
-        #self.send_message(json.dumps(self.connection_information()).encode(), address, port)
         self.send_message(b"PEER " + json.dumps(self.serialize()).encode(), address, port)
 
     def _handle_messages(self):
@@ -100,7 +93,7 @@ class Node:
         sub_socket.connect(CONNECT_FORMAT_STR.format(
             protocol=PROTOCOL,
             address="127.0.0.1",
-            port="5561"
+            port=5561
         ))
         sub_socket.setsockopt_string(zmq.SUBSCRIBE, "")
         poller = zmq.Poller()
@@ -113,35 +106,40 @@ class Node:
                     message = rep_socket.recv()
                     print("REP: " + str(message))
                     rep_socket.send(b"READY")
-                    self.update_message_queue(message)
+                    self.message_queue.append(message)
                 if sub_socket in messages:
                     message = sub_socket.recv()
                     print(f"SUB: " + str(message))
                     if message[0:4] == b"PEER":
-                        peer = json.loads(message[4:])
-                        if peer["uuid"] != self.uuid:
-                            self.peers.append(peer)
-        except Exception as e: # TODO:buscar nombre de la interrupción
-            print(e)
+                        peer_info = json.loads(message[4:])
+                        if (peer_info["uuid"] != self.uuid
+                            and peer_info["uuid"] not in [i["uuid"] for i in self.peers]):
+                            #: TODO: Hacer verificación
+                            try:
+                                self.peers.append(sanitize_info(peer_info))
+                            except ValueError as e:
+                                pass
+
         except KeyboardInterrupt as e:
-            #print(e)
+            # TODO: Buscar como mandar a detener un hilo desde si mismo
             self.p.join(0.2)
 
     def publish_thread(self):
         while True:
             if self.publish_queue:
-                socket = self.context.socket(zmq.PUB)
                 while self.publish_queue:
                     message = self.publish_queue.pop()
                     for peer in self.peers:
+                        socket = self.context.socket(zmq.DEALER)
                         socket.connect(CONNECT_FORMAT_STR.format(
                             protocol=PROTOCOL,
-                            address=peer["info"]["ip_address"],
-                            port=5561#peer["info"]["sub_port"]
+                            address=peer["ip_address"],
+                            port=peer["rep_port"]
                         ))
+                        socket.send(b"", zmq.SNDMORE)
                         socket.send(to_bytes(message))
                 socket.close()
-            sleep(0.5)
+            sleep(1)
 
     def __str__(self):
         return self.__repr__()
@@ -152,6 +150,20 @@ class Node:
     def __del__(self):
         self.p.join()
 
+
+def sanitize_info(info: dict):
+    sanitized_info = {}
+
+    # Verificar si los datos son de tipo correcto
+    sanitized_info["uuid"] = info.get("uuid")
+    sanitized_info["ip_address"] = info.get("ip_address")
+    sanitized_info["rep_port"] = info.get("rep_port")
+    sanitized_info["sub_port"] = info.get("sub_port")
+
+    if None in sanitized_info.values():
+        raise ValueError("La información de nodo no es correcta")
+
+    return sanitized_info
 
 def to_bytes(message: str) -> bytes:
     if isinstance(message, bytes):

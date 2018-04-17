@@ -74,13 +74,16 @@ def on_connect():
         @copy_current_request_context
         def f():
             logger.debug("Binding socket...")
-            poller = zmq.Poller()
             context = zmq.Context()
+
             socket = context.socket(zmq.REP)
             socket.bind("{}://{}:{}".format("tcp", "*", 5560))
+            poller = zmq.Poller()
+            poller.register(socket, zmq.POLLIN)
+
             pub_socket = context.socket(zmq.PUB)
             pub_socket.bind("{}://{}:{}".format("tcp", "*", 5561))
-            poller.register(socket, zmq.POLLIN)
+
             logger.debug("socket is binded")
             while True:
                 eventlet.sleep(2)
@@ -90,16 +93,14 @@ def on_connect():
                         msg = socket.recv()
                         logger.debug("Received message on REP socket " + msg.decode())
                         socket.send(b"READY")
-                        emit("message", msg.decode(), broadcast=True)
+                        emit("json", msg[5:].decode(), broadcast=True)
                         pub_socket.send(msg)
                     else:
                         eventlet.sleep(2)
                 except Exception as e:
                     print(e)
 
-        #socketio.start_background_task(target=f)
-        #p = Process(target=f)
-        #p.start()
+        socketio.start_background_task(target=f)
         thread = True
 
 
