@@ -34,7 +34,7 @@ class Node:
         #: Elige un puerto efímero aleatorio
         # self.port = randint(49152, 65535)
         self.port = str(port)
-        #self.p = Process(target=self._handle_messages, args=(self.message_queue,))
+        self.running = True
         self.p = Thread(target=self._handle_messages)
         self.p.start()
         self.publish_queue = []
@@ -69,7 +69,6 @@ class Node:
         ))
         socket.send(b"", zmq.SNDMORE)
         socket.send(message)
-        #socket.recv()
         socket.close()
 
     def send_info(self, address: str, port: int, **kwargs):
@@ -99,14 +98,13 @@ class Node:
         poller = zmq.Poller()
         poller.register(rep_socket, zmq.POLLIN)
         poller.register(sub_socket, zmq.POLLIN)
-        try:
-            while True:
-                messages = dict(poller.poll())
+        while self.running:
+            try:
+                messages = dict(poller.poll(1000))
                 if rep_socket in messages:
                     message = rep_socket.recv()
                     print("REP: " + str(message))
                     rep_socket.send(b"READY")
-                    self.message_queue.append(message)
                 if sub_socket in messages:
                     message = sub_socket.recv()
                     print(f"SUB: " + str(message))
@@ -119,13 +117,17 @@ class Node:
                                 self.peers.append(sanitize_info(peer_info))
                             except ValueError as e:
                                 pass
-
-        except KeyboardInterrupt as e:
-            # TODO: Buscar como mandar a detener un hilo desde si mismo
-            self.p.join(0.2)
+            except Exception as e:
+                self.running = False
+                self.p.join()
+                self.t.join()
 
     def publish_thread(self):
-        while True:
+        """
+        .. todo::
+            Revisar que no se repitan puertos dentro de los peers
+        """
+        while self.running:
             if self.publish_queue:
                 while self.publish_queue:
                     message = self.publish_queue.pop()
@@ -148,13 +150,15 @@ class Node:
         return pformat(self.serialize(), indent=1, width=80)
 
     def __del__(self):
+        self.running = False
+        self.t.join()
         self.p.join()
 
 
 def sanitize_info(info: dict):
     sanitized_info = {}
 
-    # Verificar si los datos son de tipo correcto
+    # TODO: Verificar si los datos son de tipo correcto
     sanitized_info["uuid"] = info.get("uuid")
     sanitized_info["ip_address"] = info.get("ip_address")
     sanitized_info["rep_port"] = info.get("rep_port")

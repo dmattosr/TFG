@@ -56,10 +56,13 @@ def send():
     """
     print(pformat(request.args))
     election_id = request.args.get("election_id", "0", type=str)
+    option_id = request.args.get("option_id", "0", type=str)
     #: XXX: Inicio bloque de transmisión
-
+    response = {}
+    response["election_id"] = election_id
+    response["option_id"] = option_id
     #: XXX: Fin bloque de transmisión
-    return jsonify(ticket=election_id)
+    return jsonify(**response)
 
 @socketio.on("connect")
 def on_connect():
@@ -86,14 +89,14 @@ def on_connect():
 
             logger.debug("socket is binded")
             while True:
-                eventlet.sleep(2)
                 try:
-                    messages = dict(poller.poll())
+                    messages = dict(poller.poll(1000))
                     if socket in messages:
                         msg = socket.recv()
                         logger.debug("Received message on REP socket " + msg.decode())
                         socket.send(b"READY")
                         emit("json", msg[5:].decode(), broadcast=True)
+                        emit("message", msg.decode(), broadcast=True)
                         pub_socket.send(msg)
                     else:
                         eventlet.sleep(2)

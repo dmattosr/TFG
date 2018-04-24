@@ -1,14 +1,19 @@
 <html>
     <head>
 		<meta charset="utf-8"/>
-        <script src="{{ url_for('static', filename='jquery-3.3.1.js') }}"></script>
-        <script src="{{ url_for('static', filename='socket.io.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
         <script type=text/javascript>
               $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
         </script>
         <script>
             $(function() {
                 // SOCKETS
+                // Cambiar todos los .html por cosas que no se presten
+                // a XSS
                 var socket = io('http://' + document.domain + ':' + location.port);
                 socket.transport = ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'];
                 socket.on('connect', function() {
@@ -22,7 +27,7 @@
                     $('#conn_status').html('<b>Closed</b>');
                 });
                 socket.on('message', function(msg) {
-                    $("#placeholder").html("<b>" + JSON.stringify(msg) + "</b>")
+                    $("#placeholder").html("<b>" + msg + "</b>")
                 });
                 socket.on('json', function(msg) {
                     $("#placeholder").html("<b>" + JSON.stringify(JSON.parse(msg), space="\t") + "</b>")
@@ -33,13 +38,18 @@
                 //alert($SCRIPT_ROOT);
                 $("#voting").submit(function(event) {
                     // TODO: En un futuro url_for dará problemas, ya que no es dinámico
-                    $.post('{{ url_for("send") }}',
-						{election_id: $('input[name="election-id"]').val()},
+                    $.getJSON(
+                        '{{ url_for("send") }}',
+                        {
+                            election_id: $('input[name="election-id"]').val(),
+                            option_id: $('input[name="option-id"]').val()
+                        },
 						function(data) {
-							alert("POST" + JSON.stringify(data));
-						},
-                        'json'
-                    ).done(function() {alert("POST done!")});
+							alert("GET " + JSON.stringify(data));
+						}
+                    ).done(function() {
+                        alert("GET done!");
+                    });
                 });
 
             });
