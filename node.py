@@ -55,7 +55,7 @@ class Node:
         ser serializada a algún formato (principalmente JSON).
         """
         return {
-            "uuid": self.uuid,
+            #"uuid": self.uuid,
             "ip_address": "127.0.0.1", # TODO: Cambiar a dinámico
             "rep_port": self.port,
             "sub_port": str(int(self.port) + 1),
@@ -82,6 +82,7 @@ class Node:
         """
         Envía información sobre sí mismo por la red
         """
+        logger.info(json.dumps(self.serialize()).encode())
         self.send_message(b"PEER " + json.dumps(self.serialize()).encode(), address, port)
 
     def _handle_messages(self):
@@ -116,12 +117,11 @@ class Node:
                     message = sub_socket.recv()
                     logger.info(f"SUB: " + str(message))
                     if message[0:4] == b"PEER":
-                        peer_info = json.loads(message[4:])
-                        if (peer_info["uuid"] != self.uuid
-                            and peer_info["uuid"] not in [i["uuid"] for i in self.peers]):
+                        peer_info = json.loads(message.decode()[4:])
+                        if peer_info not in self.peers and self.serialize() != peer_info:
                             #: TODO: Hacer verificación
                             try:
-                                self.peers.append(sanitize_info(peer_info))
+                                self.peers.append(peer_info)
                             except ValueError as e:
                                 pass
             except Exception as e:

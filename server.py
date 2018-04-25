@@ -3,7 +3,11 @@ Aquí está la configuración del servidor que corre Flask y conecta,
 usando socket.io, con el cliente para hacer una página web actualizable
 en tiempo real.
 
-.. todo:: Orientarlo a objetos, tal vez
+.. todo::
+    - Orientarlo a objetos, tal vez
+    - Falta una función generalizada para sanear los mensajes de
+    descubrimiento y de votación
+
 """
 
 #: eventlet debe ser importado primero
@@ -14,6 +18,7 @@ eventlet.monkey_patch()
 
 import json
 import logging
+import os
 
 from multiprocessing import Process
 from threading import Thread
@@ -25,19 +30,29 @@ from flask_socketio import SocketIO, emit
 
 import zmq
 
-thread = None
-
+    
 LOGGER_NAME = "Flask server"
 LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
 logger = logging.getLogger(LOGGER_NAME)
 logger.setLevel(logging.DEBUG)
 logging.basicConfig(format=LOGGER_FORMAT)
 
+thread = None
+
+PEER_LIST_FILE = "conf/peers.json"
+try:
+    peer_list = json.load(open(PEER_LIST_FILE))
+    logger.debug("Loaded peer list succesfully from " + PEER_LIST_FILE)
+    logger.debug("Peer list " + peer_list)
+except Exception as e:
+    logger.warning(e)
+    peer_list = []
+    logger.debug("No previous peers detected, creating new file at " + PEER_LIST_FILE)
+
 app = Flask(__name__)
 app.config.DEBUG = True
 #app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode="eventlet")
-
+socketio = SocketIO(app, async_mode="eventlet") 
 
 @app.route("/")
 def index():
@@ -63,6 +78,7 @@ def send():
     response = {}
     response["election_id"] = election_id
     response["option_id"] = option_id
+
     #: XXX: Fin bloque de transmisión
     return jsonify(**response)
 
@@ -96,9 +112,18 @@ def on_connect():
                     if socket in messages:
                         msg = socket.recv()
                         logger.debug("Received message on REP socket " + msg.decode())
-                        logger.debug("message as json: " + json.dumps(msg[5:].decode()))
                         socket.send(b"READY")
-                        emit("json", json.loads(msg[5:].decode()), broadcast=True)
+                        msg_header = msg.decode()[:4]
+                        msg_dict = json.loads(msg.decode()[5:])
+                        # aquí iría un "switch" para cada posible header
+                        # este es solo para el header PEER
+                        if msg_header == "PEER" and msg_dict not in peer_list:
+                            with open(PEER_LIST_FILE, "w+") as f:
+                                peer_list.append(msg_dict)
+                                json.dump(peer_list, f)
+                        # XXX: Tendría ahora que haber uno para VOTE
+                        # que es ya el otro importante
+                        emit("json", msg_dict, broadcast=True)
                         pub_socket.send(msg)
                     else:
                         eventlet.sleep(2)
@@ -112,7 +137,6 @@ def on_connect():
 @socketio.on("message")
 def log_message(message):
     logger.info("Message received: \"" + message + "\"")
-
 
 if __name__ == '__main__':
     socketio.run(app, host="0.0.0.0", port=8000, debug=True) 

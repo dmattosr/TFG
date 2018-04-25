@@ -16,3 +16,7 @@ __pycache__
 
 # static HTML files (css/js)
 static/
+
+# temp
+conf/
+node_test.py

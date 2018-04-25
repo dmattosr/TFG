@@ -16,6 +16,8 @@ class Blockchain:
         - Fecha de inicio.
         - Fecha de caducidad.
         - Clave pública.
+        - Lista de votantes
+        - Lista de opciones
         - Más cosas, probablemente.
 
     """
