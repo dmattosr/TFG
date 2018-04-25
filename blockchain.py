@@ -8,7 +8,7 @@ import crypto
 
 class Blockchain:
     """
-    Esta es la BLOCKCHAAAAAIN.
+    Esta es la clase principal de la blockchain.
 
     .. todo::
         Hacer el genesis block. Debería tener:
@@ -34,11 +34,11 @@ class Blockchain:
 
     def serialize(self):
         return {
-
+            
         }
         
     def __repr__(self):
-        return "blep"
+        return self
 
     def __str__(self):
-        return "blep"
+        return self
