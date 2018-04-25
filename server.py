@@ -4,9 +4,10 @@ usando socket.io, con el cliente para hacer una página web actualizable
 en tiempo real.
 
 .. todo::
+
     - Orientarlo a objetos, tal vez
     - Falta una función generalizada para sanear los mensajes de
-    descubrimiento y de votación
+      descubrimiento y de votación
 
 """
 
