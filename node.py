@@ -10,6 +10,7 @@ esta.
 """
 
 import json
+import logging
 
 from multiprocessing import Process
 from threading import Thread
@@ -22,6 +23,12 @@ import zmq
 
 CONNECT_FORMAT_STR = "{protocol}://{address}:{port}"
 PROTOCOL = "tcp"
+
+LOGGER_NAME = "Flask server"
+LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
+logger = logging.getLogger(LOGGER_NAME)
+logger.setLevel(logging.DEBUG)
+logging.basicConfig(format=LOGGER_FORMAT)
 
 class Node:
     """
@@ -103,11 +110,11 @@ class Node:
                 messages = dict(poller.poll(1000))
                 if rep_socket in messages:
                     message = rep_socket.recv()
-                    print("REP: " + str(message))
+                    logger.info("REP: " + str(message))
                     rep_socket.send(b"READY")
                 if sub_socket in messages:
                     message = sub_socket.recv()
-                    print(f"SUB: " + str(message))
+                    logger.info(f"SUB: " + str(message))
                     if message[0:4] == b"PEER":
                         peer_info = json.loads(message[4:])
                         if (peer_info["uuid"] != self.uuid

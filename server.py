@@ -12,7 +12,9 @@ import eventlet
 #: tanto se tiene que ejecutar antes de importar alguna otra cosa.
 eventlet.monkey_patch()
 
+import json
 import logging
+
 from multiprocessing import Process
 from threading import Thread
 from pprint import pformat
@@ -94,9 +96,9 @@ def on_connect():
                     if socket in messages:
                         msg = socket.recv()
                         logger.debug("Received message on REP socket " + msg.decode())
+                        logger.debug("message as json: " + json.dumps(msg[5:].decode()))
                         socket.send(b"READY")
-                        emit("json", msg[5:].decode(), broadcast=True)
-                        emit("message", msg.decode(), broadcast=True)
+                        emit("json", json.loads(msg[5:].decode()), broadcast=True)
                         pub_socket.send(msg)
                     else:
                         eventlet.sleep(2)
