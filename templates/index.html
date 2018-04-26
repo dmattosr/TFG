@@ -12,7 +12,7 @@
         <script>
             $(function() {
                 // SOCKETS
-                // Cambiar todos los .html por cosas que no se presten
+                // TODO: Cambiar todos los .html por cosas que no se presten
                 // a XSS
                 var socket = io('http://' + document.domain + ':' + location.port);
                 socket.transport = ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'];
@@ -45,11 +45,9 @@
                             option_id: $('input[name="option-id"]').val()
                         },
 						function(data) {
-							alert("GET " + JSON.stringify(data, null, 4));
+							console.log("GET " + JSON.stringify(data, null, 4));
 						}
-                    ).done(function() {
-                        alert("GET done!");
-                    });
+                    );
                 });
 
             });

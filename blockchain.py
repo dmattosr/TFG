@@ -30,7 +30,7 @@ class Blockchain:
         """
         self.start_timestamp = time.time()
         self.end_timestamp = end_date
-        self.public_key = 3
+        self.public_key = None#:XXX: aquí consultar
 
     def serialize(self):
         return {
