@@ -49,6 +49,7 @@ class Node:
         self.t.start()
         self.peers = []
 
+
     def serialize(self) -> dict:
         """
         Devuelve un diccionario de Python con la información apta para
@@ -84,6 +85,44 @@ class Node:
         """
         logger.info(json.dumps(self.serialize()).encode())
         self.send_message(b"PEER " + json.dumps(self.serialize()).encode(), address, port)
+
+    def send_vote(self, election_id, options, proofs, signature):
+        #:election_id ->
+        """
+        .. todo::
+            Considerar cambiar la entrada por parámetros con nombre
+            por un dict
+
+        Construye un mensaje de votación y lo envía a la cola de
+        publicación.
+
+        :param election_id: El id de la elección.
+        :type election_id: uuid
+        :param option_id: Un array del voto encriptado.
+        :proofs: Las ZKP no interactivas que validan el voto.
+        :param signature: La firma que certifica la pertenencia del
+            votante a la elección.
+
+        :returns: El ticket de auditoría criptográfica
+
+        :raises ValueError: cuando alguno de los parámetros no está
+            en un formato adecuado
+        """
+        #:TODO: Verificadores de validez de entradas
+        vote = {
+            "election_id": election_id,
+            "options": options,
+            "proofs": proofs,
+            "signature": signature
+        }
+    
+        vote_message = "VOTE " + json.dumps(vote)
+
+        self.publish_queue.append(vote_message)
+        self.send_message(vote_message.encode(), "127.0.0.1", 5560)
+        #:TODO: make_receipt
+
+        return vote
 
     def _handle_messages(self):
         """
@@ -136,10 +175,10 @@ class Node:
         """
         while self.running:
             if self.publish_queue:
+                socket = self.context.socket(zmq.DEALER)
                 while self.publish_queue:
                     message = self.publish_queue.pop()
                     for peer in self.peers:
-                        socket = self.context.socket(zmq.DEALER)
                         socket.connect(CONNECT_FORMAT_STR.format(
                             protocol=PROTOCOL,
                             address=peer["ip_address"],

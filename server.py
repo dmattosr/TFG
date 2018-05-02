@@ -44,7 +44,7 @@ PEER_LIST_FILE = "conf/peers.json"
 try:
     peer_list = json.load(open(PEER_LIST_FILE))
     logger.debug("Loaded peer list succesfully from " + PEER_LIST_FILE)
-    logger.debug("Peer list " + peer_list)
+    logger.debug("Peer list " + repr(peer_list))
 except Exception as e:
     logger.warning(e)
     peer_list = []
@@ -124,6 +124,8 @@ def on_connect():
                                 json.dump(peer_list, f)
                         # XXX: Tendría ahora que haber uno para VOTE
                         # que es ya el otro importante
+                        if msg_header == "VOTE":
+                            pass
                         emit("json", msg_dict, broadcast=True)
                         pub_socket.send(msg)
                     else:
