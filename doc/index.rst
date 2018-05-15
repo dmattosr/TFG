@@ -13,8 +13,8 @@ Bienvenidas y bienvenidos a la página de documentación para mi Trabajo de Fin 
    :caption: Contenidos:
 
    server
-   crypto
    node
+   crypto
    blockchain
 
 Índices y tablas

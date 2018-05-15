@@ -61,8 +61,8 @@ class Blockchain:
     def create_new_block(self):
         new_block = {
             "n": len(self.blocks),
-            "proof": None, # Aquí va la prueba de hashcash o similar,
-            "previous_hash": ,
+            "proof": None, #:TODO: Aquí va la prueba de hashcash o similar,
+            "previous_hash": hash("blep"), #:XXX: Buscar como hashear bloques
             "transactions": self.pending_transactions
         }
         self.pending_transactions = []

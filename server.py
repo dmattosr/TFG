@@ -31,6 +31,7 @@ from flask_socketio import SocketIO, emit
 
 import zmq
 
+from crypto import encrypt_for_vote, load_keys
     
 LOGGER_NAME = "Flask server"
 LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
@@ -73,15 +74,33 @@ def send():
 
     """
     print(pformat(request.args))
-    election_id = request.args.get("election_id", "0", type=str)
-    option_id = request.args.get("option_id", "0", type=str)
-    #: XXX: Inicio bloque de transmisión
-    response = {}
-    response["election_id"] = election_id
-    response["option_id"] = option_id
+    try:
+        election_id = request.args.get("election_id", 0, type=int)
+        option_id = request.args.get("option_id", 0xFF, type=int)
+        signature = request.args.get("signature", 0, type=int)
+        options = [0, 0, 0, 0, 0]
+        options[option_id] = 1
+        #: XXX: Inicio bloque de transmisión
+        response = {}
+        response = dict(
+            election_id=election_id,
+            options=encrypt_for_vote(load_keys("key")[0], options),
+            signature=signature
+        )
+       # response["election_id"] = election_id
+        #response["options"] = encrypt_for_vote(load_keys("key")[0], options)
+        #response["signature"] = signature
 
-    #: XXX: Fin bloque de transmisión
-    return jsonify(**response)
+        #: XXX: Fin bloque de transmisión
+        return jsonify(**response)
+    except Exception as e:
+        print(e)
+        return jsonify({})
+
+@app.route("/create", methods=("POST",))
+def create_election():
+    return jsonify({})
+
 
 @socketio.on("connect")
 def on_connect():

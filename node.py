@@ -16,19 +16,24 @@ from multiprocessing import Process
 from threading import Thread
 from pprint import pformat
 from random import randint
-from time import sleep
+from time import sleep, time
 from uuid import uuid4
 
 import zmq
 
+from blockchain import Blockchain
+from crypto import construct_proof, encrypt_for_vote, load_keys
+
 CONNECT_FORMAT_STR = "{protocol}://{address}:{port}"
 PROTOCOL = "tcp"
 
-LOGGER_NAME = "Flask server"
+LOGGER_NAME = "node " + str(hash(time()))
 LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
 logger = logging.getLogger(LOGGER_NAME)
 logger.setLevel(logging.DEBUG)
 logging.basicConfig(format=LOGGER_FORMAT)
+
+HEARTBEAT_INTERVAL = 5
 
 class Node:
     """
@@ -38,17 +43,29 @@ class Node:
     def __init__(self, port):
         self.uuid = "-".join([str(field) for field in uuid4().fields])
         self.context = zmq.Context()
-        #: Elige un puerto efímero aleatorio
-        # self.port = randint(49152, 65535)
         self.port = str(port)
         self.running = True
         self.p = Thread(target=self._handle_messages)
         self.p.start()
         self.publish_queue = []
-        self.t = Thread(target=self.publish_thread)
+        self.t = Thread(target=self._publish_thread)
         self.t.start()
         self.peers = []
+        self.chain_ring = {0: {"public_key": load_keys("key")[0]}}
 
+    def load_peers(self, path):
+        path = "conf/peers.json"
+        try:
+            self.peers.extend(json.load(open(path)))
+            logger.debug("Loaded peer list succesfully from " + path)
+            logger.debug("Peer list " + repr(self.peers))
+        except Exception as e:
+            logger.warning(e)
+            logger.debug("No previous peers detected, creating new file at " + path)
+
+    def save_peers(self, path):
+        with open(path, "w+") as f:
+            json.dump(self.peers, f)
 
     def serialize(self) -> dict:
         """
@@ -86,8 +103,7 @@ class Node:
         logger.info(json.dumps(self.serialize()).encode())
         self.send_message(b"PEER " + json.dumps(self.serialize()).encode(), address, port)
 
-    def send_vote(self, election_id, options, proofs, signature):
-        #:election_id ->
+    def send_vote(self, election_id, options, signature: int):
         """
         .. todo::
             Considerar cambiar la entrada por parámetros con nombre
@@ -97,9 +113,9 @@ class Node:
         publicación.
 
         :param election_id: El id de la elección.
-        :type election_id: uuid
+        :type election_id: int
         :param option_id: Un array del voto encriptado.
-        :proofs: Las ZKP no interactivas que validan el voto.
+        :param proofs: Las ZKP no interactivas que validan el voto.
         :param signature: La firma que certifica la pertenencia del
             votante a la elección.
 
@@ -109,10 +125,14 @@ class Node:
             en un formato adecuado
         """
         #:TODO: Verificadores de validez de entradas
+        
+        public_key = self.chain_ring[election_id]["public_key"]
+        encrypted_options = encrypt_for_vote(options, public_key)
+
         vote = {
             "election_id": election_id,
-            "options": options,
-            "proofs": proofs,
+            "options": encrypted_options,
+            "proofs": construct_proof(encrypted_options, public_key),
             "signature": signature
         }
     
@@ -126,8 +146,9 @@ class Node:
 
     def _handle_messages(self):
         """
-        Este método empieza a correr en un nuevo hilo al crear una
-        instancia del nodo, 
+        Este método maneja la llegada de mensajes al nodo mediante un
+        sistema de polling. Corre en un hilo nuevo al ser creado el
+        nodo.
         """
         rep_socket = self.context.socket(zmq.REP)
         rep_socket.bind(CONNECT_FORMAT_STR.format(
@@ -168,8 +189,10 @@ class Node:
                 self.p.join()
                 self.t.join()
 
-    def publish_thread(self):
+    def _publish_thread(self):
         """
+        Revisa periódicamente la cola de publicaciones pendientes y las
+        publica a 
         .. todo::
             Revisar que no se repitan puertos dentro de los peers
         """
@@ -199,6 +222,10 @@ class Node:
         self.running = False
         self.t.join()
         self.p.join()
+
+    def add_peer(peer_info: dict):
+        #XXX: sanitizar y verificar
+        self.peers.append(peer_info)
 
 
 def sanitize_info(info: dict):
