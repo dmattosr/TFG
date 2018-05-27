@@ -6,6 +6,7 @@ trabajar con ella
 
 import json
 from math import ceil, floor, log, sqrt
+from random import SystemRandom
 from time import sleep
 
 from gmpy2 import is_prime
@@ -15,17 +16,6 @@ from Crypto import Random
 from Crypto.Random import random
 
 from shamir import make_shares, recover_secret
-
-#:Para 2048 bits de seguridad
-#MERSENNE_COEFFICIENT = 2203 
-#:El coeficiente para el primo de Mersenne que da 128 bits de seguridad.
-MERSENNE_COEFFICIENT = 127
-
-MERSENNE_PRIME = pow(2, MERSENNE_COEFFICIENT) - 1
-"""
-El primo de Mersenne se usa para la recuperación de shares en el
-protocolo de *Shamir's Secret Sharing*.
-"""
 
 """
 -------------------- Utilidades matemáticas --------------------
@@ -102,12 +92,7 @@ def save_key(key, filepath):
     :param filepath: <str> El fichero para guardar la clave.
 
     """
-    key_dict = {
-        "p": key.p,
-        "g": key.g,
-        "y": key.y,
-        "x": key.x,
-    }
+    key_dict = serialize_key(key)
     with open("key", "a+") as f:
         json.dump(key_dict, f)
         f.write("\n")
@@ -124,13 +109,18 @@ def load_keys(filepath):
     with open(filepath) as f:
         for line in f.readlines():
             k_dict = json.loads(line)
-            p = k_dict.get("p")
-            g = k_dict.get("g")
-            y = k_dict.get("y")
-            x = k_dict.get("x")
-            keys.append(ElGamal.construct((p, g, y, x)))
+            keys.append(reconstruct_key(k_dict))
     return keys
 
+def reconstruct_key(k_dict):
+    p = k_dict.get("p")
+    g = k_dict.get("g")
+    y = k_dict.get("y")
+    x = k_dict.get("x")
+    if x:
+        return ElGamal.construct((p, g, y, x))
+    else:
+        return ElGamal.construct((p, g, y))
 
 def generate_ElGamal_key(keysize):
     """
@@ -157,6 +147,7 @@ def encrypt_for_vote(key, options):
             raise ValueError(
                 "La papeleta {} está mal formada.".format(str(options))
             )
+
     return [key.encrypt(pow(key.g, i), Random.new().read(key.size())) for i in options] 
 
 def construct_proof(encrypted_ballot, key):
@@ -174,18 +165,21 @@ def construct_proof(encrypted_ballot, key):
     """
     
     #: choose random v from [0, q-1]
-    v = SystemRandom.randrange(key.p - 1)
+    #v = SystemRandom().randint(0, key.p - 1)
 
 
     #: compute V = g^v mod p
-    V = g**v % p
+    #V = key.g**v % key.p
 
     #: (INTERACTIVO) choose random c from [0, 2^t-1]
     #:TODO: Hacerlo no interactivo
 
     # r = v-a*c mod q
 
-    return {1, 2, 3}
+    return [1, 2, 3]
+
+def validate_proof(key, ballot, proof):
+  pass
 
 lambda x, y, p: []
 def tally_votes(key, ballot_list):
@@ -292,3 +286,18 @@ def test_tally():
     print(table, "\n")
 
     print([table.index(i) for i in tallied], "\n")
+
+def serialize_key(key: ElGamal):
+    if key.has_private():
+        return {
+            "p": key.p,
+            "g": key.g,
+            "y": key.y,
+            "x": key.x,
+        }
+    else:
+        return {
+            "p": key.p,
+            "g": key.g,
+            "y": key.y,
+        }
