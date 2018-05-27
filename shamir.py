@@ -3,31 +3,31 @@ Lo siguiente es una adaptación de un código que se encuentra en el
 dominio público. Aquí adelante se encuentra intacto el mensaje de
 copyright original:
 
+    The following Python implementation of Shamir's Secret Sharing is
+    released into the Public Domain under the terms of CC0 and OWFa:
+    https://creativecommons.org/publicdomain/zero/1.0/
+    http://www.openwebfoundation.org/legal/the-owf-1-0-agreements/owfa-1-0
 
-The following Python implementation of Shamir's Secret Sharing is
-released into the Public Domain under the terms of CC0 and OWFa:
-https://creativecommons.org/publicdomain/zero/1.0/
-http://www.openwebfoundation.org/legal/the-owf-1-0-agreements/owfa-1-0
+    See the bottom few lines for usage. Tested on Python 2 and 3.
 
-See the bottom few lines for usage. Tested on Python 2 and 3.
+Las modificaciones adicionales están bajo una licencia MIT.
 """
 
 from random import SystemRandom
+from functools import reduce
 
-# Definimos el número primo a utilizar para la seguridad. Debe ser un
-# número primo de Mersenne. Aquí utilizamos el número 13, el primero
-# estrictamente mayor que nuestra clave privada.
-# TODO: Autocomputar primo de mersenne
 MERSENNE_PRIME = 2**521 - 1
 """
-TODO: Se sugiere a vistas futuras implementar un generador de primos de
-Mersenne.
+Definimos el número primo a utilizar para la seguridad. Debe ser un
+número primo de Mersenne. Aquí utilizamos el número 13, el primero
+estrictamente mayor que nuestra clave privada.
 """
 
 def _eval_at(poly, x, prime):
-    '''evaluates polynomial (coefficient tuple) at x, used to generate a
+    """
+    evaluates polynomial (coefficient tuple) at x, used to generate a
     shamir pool in make_random_shares below.
-    '''
+    """
     accum = 0
     for coeff in reversed(poly):
         accum *= x
@@ -71,7 +71,8 @@ def _extended_gcd(a, b):
 
 
 def _divmod(num, den, p):
-    '''compute num / den modulo prime p
+    '''
+    compute num / den modulo prime p
 
     To explain what this means, the return value will be such that
     the following is true: den * _divmod(num, den, p) % p == num
@@ -87,11 +88,7 @@ def _lagrange_interpolate(x, x_s, y_s, p):
     '''
     k = len(x_s)
     assert k == len(set(x_s)), "points must be distinct"
-    def PI(vals):  # upper-case PI -- product of inputs
-        accum = 1
-        for v in vals:
-            accum *= v
-        return accum
+    PI = lambda vals: reduce(lambda x, y: x*y, vals)
     nums = []  # avoid inexact division
     dens = []
     for i in range(k):
@@ -106,11 +103,11 @@ def _lagrange_interpolate(x, x_s, y_s, p):
 
 
 def recover_secret(shares, prime=MERSENNE_PRIME):
-    '''
-    Recover the secret from share points
-    (x,y points on the polynomial)
-    '''
+    """
+    Recupera el secreto a partir de los shares (los puntos (x, y) del
+    polinomio).
+    """
     if len(shares) < 2:
-        raise ValueError("need at least two shares")
+        raise ValueError("Son necesarios al menos dos shares")
     x_s, y_s = zip(*shares)
     return _lagrange_interpolate(0, x_s, y_s, prime)
