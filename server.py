@@ -1,11 +1,10 @@
 """
-Aquí está la configuración del servidor que corre Flask y conecta,
+Un servidor en Flask que conecta,
 usando socket.io, con el cliente para hacer una página web actualizable
 en tiempo real.
 
 .. todo::
 
-    - Orientarlo a objetos, tal vez
     - Falta una función generalizada para sanear los mensajes de
       descubrimiento y de votación
 
@@ -20,10 +19,13 @@ eventlet.monkey_patch()
 import json
 import logging
 import os
+import time
+import zlib
 
 from multiprocessing import Process
 from threading import Thread
 from pprint import pformat
+from random import SystemRandom
 
 from flask import (Flask, render_template, copy_current_request_context,
     request, jsonify)
@@ -31,8 +33,10 @@ from flask_socketio import SocketIO, emit
 
 import zmq
 
-from crypto import encrypt_for_vote, load_keys
-    
+from crypto import (construct_proof, encrypt_for_vote, load_keys,
+        reconstruct_key)
+from blockchain import Blockchain 
+
 LOGGER_NAME = "Flask server"
 LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
 logger = logging.getLogger(LOGGER_NAME)
@@ -45,21 +49,48 @@ PEER_LIST_FILE = "conf/peers.json"
 try:
     peer_list = json.load(open(PEER_LIST_FILE))
     logger.debug("Loaded peer list succesfully from " + PEER_LIST_FILE)
-    logger.debug("Peer list " + repr(peer_list))
+    logger.debug("Peer list " + repr(peer_list)) #XXX#
 except Exception as e:
     logger.warning(e)
     peer_list = []
     logger.debug("No previous peers detected, creating new file at " + PEER_LIST_FILE)
+
+CHAIN_RING_FILE = "conf/chain.json"
+chain_ring = {}
+try:
+    loaded_chain = json.load(open(CHAIN_RING_FILE))
+    for i in list(loaded_chain.keys()):
+        # XXX: Resulta que json solo admite strings como keys, entonces
+        # hay que convertir la clave a int
+        key = int(i)
+        chain_ring[key] = Blockchain.construct(json.loads(loaded_chain[i]))
+    logger.debug("Loaded chain ring succesfully from " + CHAIN_RING_FILE)
+    logger.debug("Chain ring: " + repr(list(chain_ring.keys())))
+except Exception as e:
+    logger.warning(e)
+    logger.debug("No chains detected, creating new file at " + CHAIN_RING_FILE)
 
 app = Flask(__name__)
 app.config.DEBUG = True
 #app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode="eventlet") 
 
+def save_chain_ring():
+    with open(CHAIN_RING_FILE, "w") as f:
+        json.dump({chain_id: chain_ring[chain_id].serialize() for chain_id in chain_ring}, f)
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", elections=get_ids_for_template())
 
+def get_ids_for_template():
+    names = []
+    election_ids = []
+    for election_id in chain_ring:
+        election_ids.append(zlib.crc32(str(election_id).encode()))
+        names.append(chain_ring.get(election_id).blocks[0].get("name"))
+    
+    return zip(names, election_ids)
 
 @app.route("/send", methods=("GET", "POST"))
 def send():
@@ -73,34 +104,53 @@ def send():
               esta verificación.
 
     """
-    print(pformat(request.args))
+    logger.debug(pformat(request.args))
     try:
-        election_id = request.args.get("election_id", 0, type=int)
-        option_id = request.args.get("option_id", 0xFF, type=int)
-        signature = request.args.get("signature", 0, type=int)
-        options = [0, 0, 0, 0, 0]
+        election_id = int(request.args.get("election_id", 0, type=int))
+        chain = chain_ring.get(election_id)
+        if not chain:
+            return jsonify({})
+        option_id = int(request.args.get("option_id", 0xFF, type=int))
+        signature = int(request.args.get("signature", 0, type=int))
+        options = [0 for i in range(len(chain.blocks[0]["option_list"]))]
         options[option_id] = 1
         #: XXX: Inicio bloque de transmisión
-        response = {}
-        response = dict(
-            election_id=election_id,
-            options=encrypt_for_vote(load_keys("key")[0], options),
+        vote_ticket = {}
+        logger.debug("CREANDO VOTO")
+        vote_ticket = dict(
+            options=encrypt_for_vote(chain.blocks[0]["public_key"], options),
+            proofs=construct_proof(options, chain.blocks[0]["public_key"]),
             signature=signature
         )
-       # response["election_id"] = election_id
-        #response["options"] = encrypt_for_vote(load_keys("key")[0], options)
-        #response["signature"] = signature
-
+        logger.debug("VOTO CREADO")
+        chain.create_vote(**vote_ticket)
+        logger.debug("AÑADIDO A LA CHAIN")
+        save_chain_ring();
+        logger.debug("CHAIN guardadad")
+        vote_ticket["election_id"] = election_id
         #: XXX: Fin bloque de transmisión
-        return jsonify(**response)
+        return jsonify(**vote_ticket)
     except Exception as e:
-        print(e)
+        logger.warning(e)
         return jsonify({})
 
 @app.route("/create", methods=("POST",))
 def create_election():
-    return jsonify({})
-
+    election_data = request.get_json()
+    logger.debug(election_data)
+    name = election_data.get("name", "votacion")
+    election_id = SystemRandom().randint(0, 2**256-1)
+    while election_id in chain_ring:
+        election_id = SystemRandom().randint(0, 2**256-1)
+    start_time = float(election_data.get("start_time", time.time()))
+    end_time = float(election_data.get("end_time", time.time() + 3600))
+    public_key = election_data.get("public_key")
+    voter_list = election_data.get("voter_list")
+    option_list = election_data.get("option_list")
+    
+    chain_ring[election_id] = Blockchain(start_time, end_time, reconstruct_key(public_key), voter_list, option_list, name)
+    save_chain_ring()
+    return jsonify({election_id: chain_ring[election_id].serialize()})
 
 @socketio.on("connect")
 def on_connect():
@@ -150,7 +200,7 @@ def on_connect():
                     else:
                         eventlet.sleep(2)
                 except Exception as e:
-                    print(e)
+                    logger.warning(e)
 
         socketio.start_background_task(target=f)
         thread = True
