@@ -59,35 +59,12 @@
     </head>
     <body>
         <div class="container-fluid main-container">
-            <div class="col-1"></div>
-            <div class="col-10">
-                <h1 style="text-align: center">Sistema de votación</h1>
-                <div id="conn_status" >Not Connected</div>
-                <div id="form">
-                    <form id="voting" action="javascript: handleForm()">
-                        <div class="form-group">
-                            <label for="election-id">Election id</label><br>
-                            <input class="form-control" type="text" name="election-id">
-                        </div>
-                        <div class="form-group">
-                            <label for="option-id">Option id</label><br>
-                            <input class="form-control" type="text" name="option-id">
-                        </div>
-                        <div class="form-group">
-                            <label for="signature">Signature</label><br>
-                            <input class="form-control" type="text" name="signature">
-                        </div>
-                        <button id="vote" type="button" class="btn btn-primary btn-lg btn-block">Votar</button>
-					<select class="select-election">
-						{% for election in elections %}
-						<option value="{{election}}" SELECTED>{{election}}</option>"
-						{% endfor %}
-					</select> 
-                    </form>
-                </div>
-                <div id="placeholder" style="width:600px;height:300px;font-size:110%;"></div>
-            </div>
-            <div class="col-1"></div>
+            <h1>Página principal</h1>
+            <h2>Escoge una opción</h2>
+            <a href="{{url_for('elections')}}" class="btn btn-block btn-primary">Elecciones en curso</a>
+            <a href="{{url_for('tally')}}" class="btn btn-block btn-primary">Elecciones finalizadas</a>
+            <a href="{{url_for('monitor')}}" class="btn btn-block btn-primary">Monitorización</a>
+            <a href="{{url_for('create')}}" class="btn btn-block btn-primary">Crear votación</a>
         </div>
     </body>
 

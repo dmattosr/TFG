@@ -13,23 +13,24 @@ copyright original:
 Las modificaciones adicionales están bajo una licencia MIT.
 """
 
+from math import ceil, log
 from random import SystemRandom
 from functools import reduce
 
-MERSENNE_PRIME = 2**521 - 1
+MERSENNE_PRIME = 2**2203 - 1
 """
 Definimos el número primo a utilizar para la seguridad. Debe ser un
 número primo de Mersenne. Aquí utilizamos el número 13, el primero
 estrictamente mayor que nuestra clave privada.
 """
 
-def _eval_at(poly, x, prime):
+def _eval_at(coefficients, x, prime=MERSENNE_PRIME):
     """
     evaluates polynomial (coefficient tuple) at x, used to generate a
     shamir pool in make_random_shares below.
     """
     accum = 0
-    for coeff in reversed(poly):
+    for coeff in reversed(coefficients):
         accum *= x
         accum += coeff
         accum %= prime

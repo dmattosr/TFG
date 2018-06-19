@@ -1,3 +1,10 @@
+"""
+Aquí se encuentra funciones de ayuda varias utilizadas por múltiples
+módulos del sistema.
+"""
+
+import time
+
 import crypto
 
 # GLOBALS: variables globales de ayuda para el programa
@@ -27,9 +34,16 @@ def verify_vote(key, chain, election_id, options, proofs, signature):
       autorizado en la votación.
 
     """
-    
-    options
+    pass
+    #return (id_check and options_check and proofs_check and signature_check)
 
 
-    return (id_check and options_check and proofs_check and signature_check)
+def time_performance(func, *args):
+    """
+    Informa sobre el tiempo de ejecución real de una función.
 
+    :param func: La función a ejecutar
+    """
+    start_time = time.time()
+    func(*args)
+    return time.time() - start_time

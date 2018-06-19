@@ -51,7 +51,7 @@ class Node:
         self.t = Thread(target=self._publish_thread)
         self.t.start()
         self.peers = []
-        self.chain_ring = {0: {"public_key": load_keys("key")[0]}}
+        self.chain_ring = {0: {"public_key": load_keys("conf/key")[0]}}
 
     def load_peers(self, path):
         path = "conf/peers.json"

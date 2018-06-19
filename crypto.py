@@ -4,6 +4,7 @@ encripción ElGamal homomórfica y un conjunto de utilidades que permiten
 trabajar con ella
 """
 
+import hashlib
 import json
 from math import ceil, floor, log, sqrt
 from random import SystemRandom
@@ -93,7 +94,7 @@ def save_key(key, filepath):
 
     """
     key_dict = serialize_key(key)
-    with open("key", "a+") as f:
+    with open(filepath, "a+") as f:
         json.dump(key_dict, f)
         f.write("\n")
 
@@ -134,8 +135,8 @@ def generate_ElGamal_key(keysize):
 
 def encrypt_for_vote(key, options):
     """
-    Encripta una papeleta de votos, en el formato de un array de ints
-    que solo pueden ser -1 o 1.
+    Cifra una papeleta de votos, en el formato de un array de ints
+    que solo pueden ser 0 o 1.
 
     :param options: Una lista que representa el voto.
     :param key: La clave pública de la elección.
@@ -147,41 +148,117 @@ def encrypt_for_vote(key, options):
             raise ValueError(
                 "La papeleta {} está mal formada.".format(str(options))
             )
+    
+    #k_array = [generate_k(key.size()) for option in options]
 
-    return [key.encrypt(pow(key.g, i), Random.new().read(key.size())) for i in options] 
+    k = generate_k(127)#key.size())
+    k_array = [k for i in range(len(options))]
 
-def construct_proof(encrypted_ballot, key):
+    encrypted_ballot = [key.encrypt(pow(key.g, option), k) for option, k in zip(options, k_array)]
+    proofs = construct_proof(key, options, encrypted_ballot, k_array)
+
+    return encrypted_ballot, proofs
+
+def generate_k(keysize):
+	return Random.new().read(keysize)
+
+def construct_proof(key, non_encrypted_ballot, encrypted_ballot, k_array):
     """
     Construye una prueba de cero conocimiento no interactiva con el
-    protocolo de Schnorr mediante una transformación Fiat-Shamir.
-    
-    La implementación de dicho protocolo se detalla en el RFC 8235:
-    Schnorr Non-interactive Zero-Knowledge Proof.
+    protocolo Chaum-Pedersen disyuntivo (DCP).
 
     :param encrypted_ballot: La papeleta encriptada.
     :param key: La clave pública de la elección.
 
     :returns: Una lista con las pruebas criptográficas.
     """
-    
-    #: choose random v from [0, q-1]
-    #v = SystemRandom().randint(0, key.p - 1)
+    proofs = []
+    pk = key.y
+    g = key.g
+    p = key.p
+    q = (p - 1) // 2
+
+    random = SystemRandom().randint
+
+    for v, (a, b), r_bytes in zip(non_encrypted_ballot, encrypted_ballot, k_array):
+        r = int(r_bytes.hex(), base=16)
+        if v == 0:
+            c1 = random(0, q - 1)
+            r0 = random(0, q - 1)
+            r1 = random(0, q - 1)
+
+            a1 = pow(g, r1, p) * pow(a, c1 * (p - 2), p) % p
+            b1 = pow(pk, r1, p) * pow(b * pow(g, p - 2, p) % p, c1 * (p - 2), p) % p
+
+            a0 = pow(g, r0, p)
+            b0 = pow(pk, r0, p)
+
+            c = hash_proof([pk, a, b, a0, b0, a1, b1])
+            c0 = (q + (c1 - c) % q) % q
+
+            print(c0)
+            print(r)
+
+            inter = c0 * r
+            r0 = (r0 + (c0 * r) % q) % q
+
+            proofs.append((a0, a1, b0, b1, c0, c1, r0, r1))
+        elif v == 1:
+            c0 = random(0, q - 1)
+            r0 = random(0, q - 1)
+            r1 = random(0, q - 1)
+
+            a0 = pow(g, r0, p) * pow(a, c0 * (p - 2), p) % p
+            b0 = pow(pk, r0, p) * pow(b, c0 * (p - 2), p) % p
+
+            a1 = pow(g, r1, p)
+            b1 = pow(pk, r1, p)
+
+            c = hash_proof([pk, a, b, a0, b0, a1, b1])
+            c1 = (q + (c0 - c) % q) % q
+
+            r1 = (r1 + (c1 * r) % q) % q
+            proofs.append((a0, a1, b0, b1, c0, c1, r0, r1))
+
+    return proofs
+
+def verify_ballot(key, vote):
+    valid_proofs = True
+    for ballot, proof in zip(vote["options"], vote["proofs"]):
+      proof_valid = verify_proof(key, ballot, proof)
+      print(proof_valid)
+      valid_proofs = valid_proofs and proof_valid
+    print(valid_proofs)
+    # Revisar firma
+    print("\n")
+    valid_signature = True
+
+    return valid_proofs and valid_signature
+
+def verify_proof(key, ballot, proof):
+    a, b = ballot
+    a0, a1, b0, b1, c0, c1, r0, r1 = proof
+    g = key.g
+    p = key.p
+    pk = key.y
+
+    s1 = pow(g, r0, p) == a0 * pow(a, c0, p) % p
+    s2 = pow(g, r1, p) == a1 * pow(a, c1, p) % p
+    s3 = pow(pk, r0, p) == b0 * pow(b, c0, p) % p
+    s4 = pow(pk, r1, p) == b1 * pow(b * pow(g, p - 2, p) % p, c1, p) % p
+    #print(s1, s2, s3, s4)
+    # TODO: Hay un problema con cómo está descrito en el artículo, al 
+    # parecer. La siguiente línea amerita revisión
+    # s5 = (c0 + c1) % q == custom_hash([pk, a, b, a0, b0, a1, b1])
+    return s1 and s2 and s3 and s4
 
 
-    #: compute V = g^v mod p
-    #V = key.g**v % key.p
+def sha256hash(string):
+    return hashlib.sha256(string.encode()).hexdigest()
 
-    #: (INTERACTIVO) choose random c from [0, 2^t-1]
-    #:TODO: Hacerlo no interactivo
+def hash_proof(proof):
+    return int(sha256hash("".join([str(i) for i in proof])), base=16)
 
-    # r = v-a*c mod q
-
-    return [1, 2, 3]
-
-def validate_proof(key, ballot, proof):
-  pass
-
-lambda x, y, p: []
 def tally_votes(key, ballot_list):
     """
     Realiza la sumatoria de los votos en texto cifrado.
@@ -221,6 +298,10 @@ def decrypt_vote_tally_threshold(public_key, shares, vote_tally):
     Realiza el descifrado de los votos mediante un esquema de cifrado
     umbral.
 
+    .. note:: Idealmente no se reconstruye la clave sino que se usa
+        algún protocolo de computación distribuida para ejectuar el
+        cómputo **SIN** reconstruir la clave.
+
     :param public_key: La clave pública de la elección.
     :param vote_tally: El escrutinio cifrado de votos.
     :param shares: Una lista de secretos compartidos que permiten
@@ -228,9 +309,6 @@ def decrypt_vote_tally_threshold(public_key, shares, vote_tally):
 
     :returns: El escrutinio de votos descifrado.
     """
-    #:COMENTARIO: Idealmente no se reconstruye la clave sino que se usa
-    #: algún protocolo de computación distribuida para ejectuar el
-    #: cómputo **SIN** reconstruir la clave.
     private_key = ElGamal.construct((public_key.p, public_key.g, public_key.y, recover_secret(shares)))
     return list(map(lambda x: private_key.decrypt(x), vote_tally))
     raise NotImplementedError
@@ -246,7 +324,9 @@ def vote_lookup_table(key, n_votes):
     :param n_votes: El número máximo de votos posibles para una misma
         opción. No es necesario calcular para más de esta cantidad.
 
-    :returns: Una lista.
+    :returns: Una lista donde se encuentra cada logaritmo discreto
+        posible en el dominio de la clave, donde el índice es la
+        solución.
     """
     table = []
     for x in range(n_votes):
@@ -288,6 +368,11 @@ def test_tally():
     print([table.index(i) for i in tallied], "\n")
 
 def serialize_key(key: ElGamal):
+    """
+    Devuelve un dict de Python con la información de una clave lista para serializar. Incluye los parámetros de dominio (p, g), la clave pública (y), y de tenerla, la clave privada.
+
+    :returns: un `dict` con la información de la clave.
+    """
     if key.has_private():
         return {
             "p": key.p,

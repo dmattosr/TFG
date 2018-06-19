@@ -3,14 +3,17 @@ Aquí se encuentra la definición de las clases necesarias para el uso de
 la blockchain.
 """
 
-import hashlib
 import json
 import os
 import time
 from random import SystemRandom
 
-import crypto
+from pprint import pformat
 
+import crypto
+from crypto import sha256hash
+
+DIFFICULTY = 2
 
 GENESIS_BLOCK_TEMPLATE = {
     "start_timestamp": None,
@@ -20,14 +23,11 @@ GENESIS_BLOCK_TEMPLATE = {
     "options": []
 }
 
-def sha256hash(string):
-    return hashlib.sha256(string.encode()).hexdigest()
-
 def proof_is_valid(prev_proof, prev_hash, proof): #XXX
     """
     """
     guess = sha256hash(f"{prev_proof}{prev_hash}{proof}")
-    return guess[:5] == "00000"
+    return guess[:DIFFICULTY] == "0" * DIFFICULTY
 
 class Blockchain:
 
@@ -41,6 +41,7 @@ class Blockchain:
             "index": 0,
             "proof": SystemRandom().randint(0, 2**128),
             "start_time": start_time if start_time else time.time(),
+            "timestamp": time.time(),
             "end_time": end_time,
             "public_key": public_key,
             "voter_list": voter_list,
@@ -48,7 +49,7 @@ class Blockchain:
             "name": name
         }
         self.blocks = [genesis_block]
-        self.pending_transactions = []
+        self.pending_votes = []
 
     @staticmethod
     def construct(blocks):
@@ -80,28 +81,34 @@ class Blockchain:
         except Exception as e:
             print(e)
 
-    def serialize(self):
+    def serialize_genesis_block(self):
         serializable_genesis_block = self.blocks[0].copy()
         serializable_genesis_block["public_key"] = crypto.serialize_key(serializable_genesis_block["public_key"])
-        return json.dumps([serializable_genesis_block] + self.blocks[1:])
+        return serializable_genesis_block
+
+    def serialize(self):
+        return json.dumps([self.serialize_genesis_block()] + self.blocks[1:])
+
+    def pretty_serialize(self):
+        return pformat([self.serialize_genesis_block()] + self.blocks[1:])
         
-    def create_new_block(self):
-        if not self.pending_transactions:
+    def create_new_block(self, proof):
+        if not self.pending_votes:
             return {}
         new_block = {
             "index": len(self.blocks),
             "timestamp": time.time(),
-            "proof": self.proof_of_work(),
+            "proof": proof,
             "previous_hash": self.hash(self.blocks[-1]),
-            "transactions": self.pending_transactions
+            "transactions": self.pending_votes
         }
-        self.pending_transactions = []
+        self.pending_votes = []
         self.blocks.append(new_block)
 
         return self.blocks[-1]
 
     def create_vote(self, options, proofs, signature):
-        self.pending_transactions.append({
+        self.pending_votes.append({
             "options": options,
             "proofs":  proofs,
             "signature": signature
@@ -109,8 +116,9 @@ class Blockchain:
 
        	return self.blocks[-1]["index"] + 1
    
-    @staticmethod
-    def hash(block):
+    def hash(self, block):
+        if block ==  self.blocks[0]:
+            return self.serialize_genesis_block()
         block_info = json.dumps(block, sort_keys=True)
         return sha256hash(block_info)
 
@@ -134,11 +142,64 @@ class Blockchain:
 
         return proof
 
+    def validate(self):
+        """
+        Comprueba la validez de la blockchain: verifica que los bloques
+        tengan tiempos de creación ordenados en el tiempo y que las
+        pruebas sean siempre válidas.
+        
+        :returns: `True` si la cadena válida, un `False` en cualquier
+            otro caso.
+        """
+        last_time = self.blocks[0]
+        for block_i in range(1, len(self.blocks)-1):
+            #: Verificamos que el pow es válido
+            prev_block = self.blocks[block_i-1]
+            block = self.blocks[block_i]
+            if not proof_is_valid(prev_block["proof"], self.hash(prev_block), block["proof"]):
+                print("AAAA")
+                return False
+            if block["timestamp"] < prev_block["timestamp"]:
+                return False
+        return True
+
+    def update_chain(self, others):
+        get_longest = lambda x, y: x if len(x) > len(y) else y
+        self.blocks.extend(other[len(self.blocks):])
+
+            
+
+
     def __repr__(self):
-        return self.serialize()
+        return self.pretty_serialize()
 
     def __str__(self):
-        return self.serialize()
+        return self.__repr__()
+
+    def get_name(self):
+        return self.blocks[0].get("name")
+
+    def get_public_key(self):
+        return self.blocks[0].get("public_key")
+
+    def get_options(self):
+        return self.blocks[0].get("option_list")
+
+    def get_voters(self):
+        return self.blocks[0].get("voter_list")
+
+    def get_start_time(self):
+        return self.blocks[0].get("start_time")
+
+    def get_end_time(self):
+        return self.blocks[0].get("end_time")
+
+    name = property(get_name)
+    public_key = property(get_public_key)
+    options = property(get_options)
+    start_time = property(get_start_time)
+    end_time = property(get_end_time)
+    voters = property(get_voters)
 
 
 # verificar voto
