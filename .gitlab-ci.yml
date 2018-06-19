@@ -7,7 +7,6 @@ pages:
   - pip3 install sphinx
   - virtualenv -p python3 .
   - source bin/activate
-  - pip install -r requirements.txt
   - apk --no-cache add make
   - (cd doc && make html)
   - mv doc/_build/html/ public/
