@@ -2,7 +2,7 @@ image: alpine
 
 pages:
   script:
-  - apk --no-cache add py3-pip python-dev
+  - apk --no-cache add python3 python3-dev
   - pip install virtualenv
   - pip install sphinx
   - virtualenv -p python3 .
