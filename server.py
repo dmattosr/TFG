@@ -91,6 +91,10 @@ except Exception as e:
     logger.warning(e)
     logger.debug("No finished chains detected.")
 
+
+def is_over(election_id):
+    return not election_id in chain_ring or election_id in finished_chain_ring
+
 app = Flask(__name__)
 app.config.DEBUG = True
 #app.config['SECRET_KEY'] = 'secret!'
@@ -101,7 +105,9 @@ def update_chains():
     for chain in chain_ring:
         if chain_ring[chain].end_time < time.time():
             finished_chain_ring[chain] = chain_ring[chain]
-            #chain_ring.pop(chain)
+    for chain in finished_chain_ring:
+        if chain_ring.get(chain):
+            chain_ring.pop(chain)
 
 update_chains()
 sched = BackgroundScheduler(daemon=True)
@@ -121,7 +127,7 @@ def index():
 
 @app.route("/tally")
 def tally():
-    return render_template("elections.html", elections=get_ids_for_template(finished_chain_ring), title="ELECCIONES FINALIZADAS")
+    return render_template("tally.html", elections=get_ids_for_template(finished_chain_ring), title="ELECCIONES FINALIZADAS")
 
 @app.route("/create")
 def create():

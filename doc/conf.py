@@ -169,3 +169,6 @@ texinfo_documents = [
 todo_include_todos = True
 
 autodoc_member_order = 'bysource'
+
+autodoc_mock_imports = ['click', 'eventlet', 'Flask', 'Flask-SocketIO', 'greenlet', 'itsdangerous', 'Jinja2', 'MarkupSafe', 'pycrypto', 'python-engineio', 'python-socketio', 'pyzmq', 'six', 'Werkzeug', 'zmq']
+
