@@ -8,12 +8,12 @@ import os
 import time
 from random import SystemRandom
 
-from pprint import pformat
+from pprint import pformat, saferepr
 
 import crypto
 from crypto import sha256hash
 
-DIFFICULTY = 2
+DIFFICULTY = 3
 
 GENESIS_BLOCK_TEMPLATE = {
     "start_timestamp": None,
@@ -25,13 +25,16 @@ GENESIS_BLOCK_TEMPLATE = {
 
 def proof_is_valid(prev_proof, prev_hash, proof): #XXX
     """
+    Devuelve si la cadena resultante de aplicar una función hash sobre un conjunto de cadenas concatenadas es igual a un número de ceros concreto.
+
+    :return: Si las cadenas concatenadas sirven como *proof-of-work*.
     """
     guess = sha256hash(f"{prev_proof}{prev_hash}{proof}")
     return guess[:DIFFICULTY] == "0" * DIFFICULTY
 
 class Blockchain:
 
-    def __init__(self, start_time, end_time, public_key, voter_list, option_list, name="votacion"):
+    def __init__(self, start_time, timestamp, end_time, public_key, voter_list, option_list, name="votacion"):
         """
         .. todo::
             El timestamp debería estar firmado digitalmente por alguna
@@ -41,7 +44,7 @@ class Blockchain:
             "index": 0,
             "proof": SystemRandom().randint(0, 2**128),
             "start_time": start_time if start_time else time.time(),
-            "timestamp": time.time(),
+            "timestamp": timestamp if timestamp else time.time(),
             "end_time": end_time,
             "public_key": public_key,
             "voter_list": voter_list,
@@ -90,7 +93,7 @@ class Blockchain:
         return json.dumps([self.serialize_genesis_block()] + self.blocks[1:])
 
     def pretty_serialize(self):
-        return pformat([self.serialize_genesis_block()] + self.blocks[1:])
+        return saferepr([self.serialize_genesis_block()] + self.blocks[1:])
         
     def create_new_block(self, proof):
         if not self.pending_votes:

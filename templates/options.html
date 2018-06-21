@@ -1,0 +1,75 @@
+<html>
+    <head>
+		<meta charset="utf-8"/>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    </head>
+    <body>
+        <div class="container-fluid main-container">
+            <div>
+                <h1 class="page-header">Votando en:<br>{{election}} [{{checksum}}]</h1>
+                <!--<form action="{{url_for('cast')}}" method="post">-->
+                <form id="vote" action="{{ url_for('cast') }}" method="post">
+                    <div class="row">
+                        {% for option in options %}
+                        <div class="alert">
+                        <label class="radio-inline"><input type="radio" value="{{loop.index0}}" name="option" required>{{option}}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <input hidden name="election_id" value="{{election_id}}">
+                </form>
+                    <button type='button' class="btn btn-primary btn-block" id='botoncito'>BLEP</button>
+				<div id="myModal" class="modal fade">
+					<div class="modal-dialog">
+						<div class="modal-content">
+							<div class="modal-header alert-primary">
+								<h4 class="modal-title">Antes de continuar...</h4>
+                                <!--<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>-->
+							</div>
+							<div class="modal-body">
+								<p>Los siguientes son los datos de su papeleta:</p>
+                                <h3>Datos de elección</h3>
+                                <ul>
+                                    <li>Nombre de la elección:</li>
+                                    <li>ID largo:</li>
+                                    <li>ID corto:</li>
+                                </ul>
+                                <h3>Datos de papeleta</h3>
+                                <ul>
+                                    <li>Opción escogida:</li>
+                                    <li>Firma digital:</li>
+                                </ul>
+                                <b style="font-size: 125%;">¿Está segura que desea continuar con estos datos?</b>
+							</div>
+							<div class="modal-footer">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-danger btn-block" data-dismiss="modal">No. <b>Volver.</b></button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-success btn-block" id="voteFinal">Sí. <b>Votar.</b></button>
+                                    </div>
+                                </div>
+							</div>
+						</div><!-- /.modal-content -->
+					</div><!-- /.modal-dialog -->
+				</div><!-- /.modal -->
+            </div>
+        </div>
+    </body>
+
+    <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <script>
+        $(document).ready( function() {
+            $('#botoncito').on('click', function() {
+                $('#myModal').modal('show');
+            });
+
+            $('#voteFinal').on('click', function() {
+                var form = $("#vote");
+                form.submit();
+            })
+        });
+    </script>
+</html>

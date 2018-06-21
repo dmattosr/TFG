@@ -27,15 +27,13 @@ from threading import Thread
 from pprint import pformat
 from random import SystemRandom
 
-from apscheduler.schedulers.background import BackgroundScheduler
-
 from flask import (Flask, render_template, copy_current_request_context,
     request, jsonify)
 from flask_socketio import SocketIO, emit
 
 import zmq
 
-from crypto import (construct_proof, encrypt_for_vote, load_keys,
+from crypto import (encrypt_for_vote, load_keys,
         reconstruct_key)
 from blockchain import Blockchain
 
@@ -61,39 +59,34 @@ except Exception as e:
     peer_list = []
     logger.debug("No previous peers detected, creating new file at " + PEER_LIST_FILE)
 
+def load_blockchain(path_file):
+    try:
+        loaded_chain = json.load(open(path_file))
+        ring = {}
+        for i in list(loaded_chain.keys()):
+            # XXX: Resulta que json solo admite strings como keys, entonces
+            # hay que convertir la clave a int
+            key = int(i)
+            ring[key] = Blockchain.construct(json.loads(loaded_chain[i]))
+        logger.debug("Loaded chain ring succesfully from " + path_file)
+        logger.debug("Chain ring: " + repr(list(ring.keys())))
+        return ring
+    except Exception as e:
+        logger.warning(e)
+        logger.debug("No chains detected, creating new file at " + path_file)
+        return {}
+
 CHAIN_RING_FILE = "conf/chain.json"
-chain_ring = {}
-try:
-    loaded_chain = json.load(open(CHAIN_RING_FILE))
-    for i in list(loaded_chain.keys()):
-        # XXX: Resulta que json solo admite strings como keys, entonces
-        # hay que convertir la clave a int
-        key = int(i)
-        chain_ring[key] = Blockchain.construct(json.loads(loaded_chain[i]))
-    logger.debug("Loaded chain ring succesfully from " + CHAIN_RING_FILE)
-    logger.debug("Chain ring: " + repr(list(chain_ring.keys())))
-except Exception as e:
-    logger.warning(e)
-    logger.debug("No chains detected, creating new file at " + CHAIN_RING_FILE)
-
 FINISHED_CHAIN_RING_FILE = "conf/fchain.json"
-finished_chain_ring = {}
-try:
-    loaded_chain = json.load(open(FINISHED_CHAIN_RING_FILE))
-    for i in list(loaded_chain.keys()):
-        # XXX: Resulta que json solo admite strings como keys, entonces
-        # hay que convertir la clave a int
-        key = int(i)
-        chain_ring[key] = Blockchain.construct(json.loads(loaded_chain[i]))
-    logger.debug("Loaded finished chain ring succesfully from " + FINISHED_CHAIN_RING_FILE)
-    logger.debug("Finished chain ring: " + repr(list(chain_ring.keys())))
-except Exception as e:
-    logger.warning(e)
-    logger.debug("No finished chains detected.")
+chain_ring = load_blockchain(CHAIN_RING_FILE) 
+finished_chain_ring = load_blockchain(FINISHED_CHAIN_RING_FILE)
 
+def save_chain_ring(ring, filepath):
+    logger.debug("SAVING CHAIN...")
+    with open(filepath, "w") as f:
+        json.dump({chain_id: ring[chain_id].serialize() for chain_id in ring}, f)
+    logger.debug("CHAIN SAVED")
 
-def is_over(election_id):
-    return not election_id in chain_ring or election_id in finished_chain_ring
 
 app = Flask(__name__)
 app.config.DEBUG = True
@@ -102,24 +95,15 @@ socketio = SocketIO(app, async_mode="eventlet")
 
 def update_chains():
     logger.debug("Updating chains.")
-    for chain in chain_ring:
-        if chain_ring[chain].end_time < time.time():
-            finished_chain_ring[chain] = chain_ring[chain]
-    for chain in finished_chain_ring:
-        if chain_ring.get(chain):
-            chain_ring.pop(chain)
+    finished_chains = list(filter(lambda c: chain_ring[c].end_time < time.time(), chain_ring))
+    logger.debug(finished_chains)
+    finished_chain_ring.update({c: chain_ring.pop(c) for c in finished_chains})
+    if list(finished_chains):
+        logger.info("LAS ELECCIONES {} HAN ACABADO".format(", ".join([str(c) for c in finished_chains])))
+    save_chain_ring(chain_ring, CHAIN_RING_FILE)
+    save_chain_ring(finished_chain_ring, FINISHED_CHAIN_RING_FILE)
 
 update_chains()
-sched = BackgroundScheduler(daemon=True)
-sched.add_job(update_chains, 'interval', minutes=1)
-sched.start()
-
-def save_chain_ring(ring):
-    logger.debug("SAVING CHAIN...")
-    with open(CHAIN_RING_FILE, "w") as f:
-        json.dump({chain_id: ring[chain_id].serialize() for chain_id in ring}, f)
-    logger.debug("CHAIN SAVED")
-
 
 @app.route("/")
 def index():
@@ -128,6 +112,10 @@ def index():
 @app.route("/tally")
 def tally():
     return render_template("tally.html", elections=get_ids_for_template(finished_chain_ring), title="ELECCIONES FINALIZADAS")
+
+@app.route("/tally/<int:election>")
+def tally_final():
+    return render_template("tally_final.html", elections=get_ids_for_template(finished_chain_ring))
 
 @app.route("/create")
 def create():
@@ -160,20 +148,31 @@ def cast():
     chain = chain_ring.get(election_id)
     options = [0 for _ in chain.options]
     options[option] = 1
+    options, proofs = encrypt_for_vote(chain.public_key, options)
     vote_ticket = dict(
-        options=encrypt_for_vote(chain.get_public_key(), options),
-        proofs=construct_proof(options, chain.get_public_key()),
+        options=options,
+        proofs=proofs,
         signature=1234567890
     )
     chain.create_vote(**vote_ticket)
-    broadcast_vote(**vote_ticket)
-    save_chain_ring(chain_ring)
+    #broadcast_vote(**vote_ticket)
+    update_chains()
     vote_ticket["election_id"] = election_id
     return render_template("cast.html", vote_ticket=pformat(vote_ticket)) 
 
 def broadcast_vote(options, proofs, signature):
+    socket = zmq.Context().socket(zmq.DEALER)
     for peer in peer_list:
-        pass
+        socket.connect("tcp://{}:{}".format(peer["ip_address"], peer["rep_port"]))
+        socket.send(b"", zmq.SNDMORE)
+        socket.send(b"VOTE " + json.dumps({
+            "options": options,
+            "proofs": proofs,
+            "signature": signature,
+        }).encode())
+    socket.close()
+
+               
 
 def get_ids_for_template(ring):
     names = []
@@ -182,9 +181,10 @@ def get_ids_for_template(ring):
     for election_id in ring:
         election_ids.append(election_id)
         crc_ids.append(zlib.crc32(str(election_id).encode()))
-        names.append(chain_ring.get(election_id).get_name())
+        names.append(ring.get(election_id).name)
     
     return zip(election_ids, crc_ids, names)
+
 @app.route("/api/send", methods=("POST",))
 def send():
     """
@@ -214,7 +214,7 @@ def send():
             signature=signature
         )
         chain.create_vote(**vote_ticket)
-        save_chain_ring(chain_ring)
+        save_chain_ring(chain_ring, CHAIN_RING_FILE)
         vote_ticket["election_id"] = election_id
         #: XXX: Fin bloque de transmisión
         return jsonify(**vote_ticket)
@@ -236,8 +236,8 @@ def create_election():
     voter_list = election_data.get("voter_list")
     option_list = election_data.get("option_list")
     
-    chain_ring[election_id] = Blockchain(start_time, end_time, reconstruct_key(public_key), voter_list, option_list, name)
-    save_chain_ring(ring)
+    chain_ring[election_id] = Blockchain(start_time, None, end_time, reconstruct_key(public_key), voter_list, option_list, name)
+    save_chain_ring(chain_ring, CHAIN_RING_FILE)
     return jsonify({election_id: chain_ring[election_id].serialize()})
 
 @socketio.on("connect")
@@ -294,9 +294,22 @@ def on_connect():
         thread = True
 
 
+def run_proof_of_work():
+    logger.debug("STARTED BACKGROUND TASK: PROOF OF WORK")
+    while True:
+        for chain in chain_ring.values():
+            idx = chain.create_new_block(chain.proof_of_work()).get("index")
+            if idx:
+                logger.debug("BLOQUE (N {}) CREADO EN ELECCIÓN {}".format(
+                    idx, chain.name))
+        update_chains()
+        eventlet.sleep(3)
+
+socketio.start_background_task(target=run_proof_of_work)
+
 @socketio.on("message")
 def log_message(message):
     logger.info("Message received: \"" + message + "\"")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=8000, debug=True) 

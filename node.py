@@ -126,7 +126,7 @@ class Node:
         """
         #:TODO: Verificadores de validez de entradas
         
-        public_key = self.chain_ring[election_id]["public_key"]
+        public_key = self.chain_ring[election_id].public_key
         encrypted_options = encrypt_for_vote(options, public_key)
 
         vote = {

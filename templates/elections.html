@@ -1,0 +1,37 @@
+<html>
+    <head>
+		<meta charset="utf-8"/>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    </head>
+    <body>
+        <div class="container-fluid main-container">
+            <div class="content-section">
+                <h1 class="page-header">{{ title }}</h1>
+                <div class="panel-group">
+                {% for election in elections %}
+                    <div class="panel panel-primary">
+                        <div class="panel-body">
+                            <div class="row">
+                                <div class="col-md-1 align-center">
+                                    <!--<i class="fa fa-user fa-5x"></i>-->
+                                </div> <!-- .col-md-1 -->
+                                <div class="col-md-10">
+                                    <b>Nombre:</b> {{ election[2] }}<br>
+                                    <b>ID largo:</b> {{ election[0] }}<br>
+                                    <b>ID corto:</b> {{ election[1] }}<br>
+                                </div><!-- .col-md-10 -->
+                                <div class="col-md-1 align-center">
+                                    <a href="{{url_for('elections')}}/{{election[0]}}" class="btn btn-primary btn-block">¡Vota!</a>
+                                </div><!-- .col-md-1 -->
+                            </div> <!-- .row -->
+                        </div> <!-- .panel-body -->
+                    </div> <!-- .panel -->
+                {% endfor %}
+				</div> <!-- .panel-group -->
+            </div> <!-- .content-section -->
+        </div> <!-- .container-fluid .main-container -->
+    </body>
+
+        <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+</html>
