@@ -20,14 +20,19 @@ from functools import reduce
 MERSENNE_PRIME = 2**2203 - 1
 """
 Definimos el número primo a utilizar para la seguridad. Debe ser un
-número primo de Mersenne. Aquí utilizamos el número 13, el primero
-estrictamente mayor que nuestra clave privada.
+número primo de Mersenne. Utilizamos el primero mayor que el tamaño de
+nuestra clave. (Ya que nuestra clave es de 2048 bits: :math:`2^{2203}-1
+<2^{2048}`
 """
 
 def _eval_at(coefficients, x, prime=MERSENNE_PRIME):
     """
-    evaluates polynomial (coefficient tuple) at x, used to generate a
-    shamir pool in make_random_shares below.
+    Evalúa el valor de un polinomio en un punto x dentro de un grupo
+    cíclico.
+
+    :param coefficients: La tupla de coeficientes del polinomio. En 
+        orden de menor a mayor exponente.
+
     """
     accum = 0
     for coeff in reversed(coefficients):
@@ -38,26 +43,45 @@ def _eval_at(coefficients, x, prime=MERSENNE_PRIME):
 
 
 def make_shares(key, minimum, shares, prime=MERSENNE_PRIME):
-    '''
-    Generates a random shamir pool, returns the secret and the share
-    points.
-    '''
+    """ 
+    Divide una clave privada ElGamal en n *shares* donde como mínimo se
+    necesitan k *shares* para reconstruir la clave mediante el
+    algoritmo *Shamir's Secret Sharing*.
+
+    :param key: La clave ElGamal.
+    :param minimum: La cantidad *k* mínima de shares.
+    :param shares: La cantidad *n* de shares.
+
+    :return: Una lista de tuplas :math:`(i, f(i))` que representan las
+        *shares* de la clave.
+    """
     if minimum > shares:
-        raise ValueError("pool secret would be irrecoverable")
+        raise ValueError(
+            "El número de puntos mínimo debe ser menor que el número total de puntos"
+        )
+
+    #: Construimos el polinomio, donde el término independiente es la
+    #: clave secreta.
     poly = [key.x] + [SystemRandom().randint(0, prime) for i in range(minimum)]
+
+    #: Los shares son las tuplas :math:`(i, f(i))` de puntos evaluados
+    #: del polinomio.
     shares = [(i, _eval_at(poly, i, prime))
               for i in range(1, shares + 1)]
+
     return shares
 
 
 def _extended_gcd(a, b):
-    '''
+    """
+    Algoritmo para conseguir el minimo común divisor extendido a
+    definición de grupos cíclicos
     division in integers modulus p means finding the inverse of the
     denominator modulo p and then multiplying the numerator by this
     inverse (Note: inverse of A is B such that A*B % p == 1) this can
     be computed via extended Euclidean algorithm
     http://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Computation
-    '''
+    """
 
     x = 0
     last_x = 1
@@ -83,10 +107,18 @@ def _divmod(num, den, p):
 
 
 def _lagrange_interpolate(x, x_s, y_s, p):
-    '''
-    Find the y-value for the given x, given n (x, y) points;
-    k points will define a polynomial of up to kth order
-    '''
+    """
+    Utiliza interpolación lagrange para reconstruir un polinomio dada
+    una serie de puntos (x, y). Para definir un polinomio de tamaño k
+    son necesarios como mínimo k puntos.
+
+    :param x:
+    :param x_s: Una lista de valores de x
+    :param y_s: Una lista de valores de f(x)
+    :param p:
+
+    :return: El polinomio.
+    """
     k = len(x_s)
     assert k == len(set(x_s)), "points must be distinct"
     PI = lambda vals: reduce(lambda x, y: x*y, vals)

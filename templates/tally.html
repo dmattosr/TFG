@@ -16,12 +16,12 @@
                                     <!--<i class="fa fa-user fa-5x"></i>-->
                                 </div> <!-- .col-md-1 -->
                                 <div class="col-md-8">
-                                    <b>Nombre:</b> {{ election[2] }}<br>
+                                    <h1><b>Nombre:</b> {{ election[2] }}</h1>
                                     <b>ID largo:</b> {{ election[0] }}<br>
                                     <b>ID corto:</b> {{ election[1] }}<br>
                                 </div><!-- .col-md-10 -->
                                 <div class="col-md-3 align-center">
-                                    <a href="{{url_for('elections')}}/{{election[0]}}" class="btn btn-primary btn-block">Escrutar votos</a>
+                                    <a href="{{url_for('tally')}}/{{election[0]}}" class="btn btn-primary btn-block">Escrutar votos</a>
                                 </div><!-- .col-md-1 -->
                             </div> <!-- .row -->
                         </div> <!-- .panel-body -->

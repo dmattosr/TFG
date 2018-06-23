@@ -23,21 +23,20 @@
 					<div class="modal-dialog">
 						<div class="modal-content">
 							<div class="modal-header alert-primary">
-								<h4 class="modal-title">Antes de continuar...</h4>
+                                <h4 class="modal-title">Antes de continuar...</h4>
                                 <!--<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>-->
 							</div>
 							<div class="modal-body">
 								<p>Los siguientes son los datos de su papeleta:</p>
                                 <h3>Datos de elección</h3>
                                 <ul>
-                                    <li>Nombre de la elección:</li>
-                                    <li>ID largo:</li>
-                                    <li>ID corto:</li>
+                                    <li>Nombre de la elección: {{election}}</li>
+                                    <li>ID: {{checksum}}</li>
                                 </ul>
                                 <h3>Datos de papeleta</h3>
                                 <ul>
-                                    <li>Opción escogida:</li>
-                                    <li>Firma digital:</li>
+                                    <li>Opción escogida: <span id="chosenOption"></span></li>
+                                    <li>Firma digital: <code>Una ha sido generada automáticamente</code></li>
                                 </ul>
                                 <b style="font-size: 125%;">¿Está segura que desea continuar con estos datos?</b>
 							</div>
@@ -63,6 +62,8 @@
     <script>
         $(document).ready( function() {
             $('#botoncito').on('click', function() {
+                var options = [{% for option in options %}"{{option}}",{% endfor %}];
+                $('#chosenOption').text(options[$('input[name=option]:checked').val()]);
                 $('#myModal').modal('show');
             });
 

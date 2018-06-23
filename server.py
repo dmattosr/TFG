@@ -31,13 +31,12 @@ from flask import (Flask, render_template, copy_current_request_context,
     request, jsonify)
 from flask_socketio import SocketIO, emit
 
-import zmq
+import eventlet.green.zmq as zmq
 
 from crypto import (encrypt_for_vote, load_keys,
-        reconstruct_key)
+        reconstruct_key, load_decryption_table, update_decryption_table, save_decryption_table)
 from blockchain import Blockchain
-
-from flask import Flask
+from utils import get_final_votes
 
 publish_queue = []
 
@@ -48,6 +47,9 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(format=LOGGER_FORMAT)
 
 thread = None
+
+DECRYPT_TABLE_FILE = "conf/decrypt_table"
+decrypt_table = load_decryption_table({}, DECRYPT_TABLE_FILE)
 
 PEER_LIST_FILE = "conf/peers.json"
 try:
@@ -102,6 +104,7 @@ def update_chains():
         logger.info("LAS ELECCIONES {} HAN ACABADO".format(", ".join([str(c) for c in finished_chains])))
     save_chain_ring(chain_ring, CHAIN_RING_FILE)
     save_chain_ring(finished_chain_ring, FINISHED_CHAIN_RING_FILE)
+    save_decryption_table(decrypt_table, DECRYPT_TABLE_FILE)
 
 update_chains()
 
@@ -113,9 +116,13 @@ def index():
 def tally():
     return render_template("tally.html", elections=get_ids_for_template(finished_chain_ring), title="ELECCIONES FINALIZADAS")
 
-@app.route("/tally/<int:election>")
-def tally_final():
-    return render_template("tally_final.html", elections=get_ids_for_template(finished_chain_ring))
+@app.route("/tally/<int:election_id>")
+def tally_final(election_id):
+    election_chain = finished_chain_ring[election_id]
+    return render_template("tally_final.html",
+            election=election_chain.name,
+            tally = list(zip(election_chain.options, get_final_votes(election_chain)))
+            )
 
 @app.route("/create")
 def create():
@@ -158,7 +165,9 @@ def cast():
     #broadcast_vote(**vote_ticket)
     update_chains()
     vote_ticket["election_id"] = election_id
-    return render_template("cast.html", vote_ticket=pformat(vote_ticket)) 
+    print(vote_ticket)
+    print(pformat(vote_ticket))
+    return render_template("cast.html", vote_ticket=json.dumps(vote_ticket)) 
 
 def broadcast_vote(options, proofs, signature):
     socket = zmq.Context().socket(zmq.DEALER)
@@ -238,6 +247,7 @@ def create_election():
     
     chain_ring[election_id] = Blockchain(start_time, None, end_time, reconstruct_key(public_key), voter_list, option_list, name)
     save_chain_ring(chain_ring, CHAIN_RING_FILE)
+    eventlet.spawn_n(update_decryption_table, decrypt_table, chain_ring[election_id].public_key)
     return jsonify({election_id: chain_ring[election_id].serialize()})
 
 @socketio.on("connect")

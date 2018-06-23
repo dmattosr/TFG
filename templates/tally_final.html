@@ -8,15 +8,19 @@
     </head>
     <body>
         <div class="container-fluid main-container">
-          <h1>Su papeleta ha sido entregada</h1>
-          Lo siguiente es cómo los datos de su voto se ven digitalmente.
-          <br>
-          <br>
-          <code>
-            {{ vote_ticket }}
-          </code>
-          <br>
-          <br>
+          <h1>Resultados para:</h1>
+          <h1>{{ election }}</h1>
+
+          {% if not tally %}
+          <h3 class="alert alert-critical">
+            ¡Pues vaya! Parece que esta votación no fue muy popular, nadie votó en ella. :(
+          </h3>
+          {% endif %}
+          <ul>
+          {% for option, result in tally %}
+            <li>{{option}}: {{result}}</li>
+          {% endfor %}
+          </ul>
           Para volver a la pantalla principal, por favor haga click aquí:
           <a href="{{ url_for('index') }}" class="btn btn-block btn-primary" role="button">MENU PRINCIPAL</a>
 

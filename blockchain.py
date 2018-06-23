@@ -7,7 +7,7 @@ import json
 import os
 import time
 from random import SystemRandom
-
+from functools import reduce
 from pprint import pformat, saferepr
 
 import crypto
@@ -197,13 +197,17 @@ class Blockchain:
     def get_end_time(self):
         return self.blocks[0].get("end_time")
 
+    def get_votes(self):
+        votes = [b.get("transactions") for b in self.blocks[1:]]
+        return reduce(lambda x, y: x+y, votes) if votes else []
+
     name = property(get_name)
     public_key = property(get_public_key)
     options = property(get_options)
     start_time = property(get_start_time)
     end_time = property(get_end_time)
     voters = property(get_voters)
-
+    votes = property(get_votes)
 
 # verificar voto
 # verificar que tenga la misma cantidad de las opciones
