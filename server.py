@@ -138,8 +138,7 @@ from utils import create_new_key_dict
 @app.route('/elections/<int:election>')
 def vote(election):
     election_chain = chain_ring[election]
-    logger.debug("REMOTE ADDR:" +  request.remote_addr)
-    sig = hashlib.sha256(request.remote_addr.encode()).hexdigest()
+    sig = hashlib.sha256(request.remote_addr.encode()+request.user_agent.string.encode()).hexdigest()
     sig_exists = False
     if sig in create_new_key_dict(election_chain.votes, "signature"):
         sig_exists = True
