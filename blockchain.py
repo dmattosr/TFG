@@ -29,7 +29,7 @@ def proof_is_valid(prev_proof, prev_hash, proof): #XXX
 
     :return: Si las cadenas concatenadas sirven como *proof-of-work*.
     """
-    guess = sha256hash(f"{prev_proof}{prev_hash}{proof}")
+    guess = sha256hash("{}{}{}".format(prev_proof, prev_hash, proof))
     return guess[:DIFFICULTY] == "0" * DIFFICULTY
 
 class Blockchain:
