@@ -3,6 +3,8 @@ Aquí se encuentra funciones de ayuda varias utilizadas por múltiples
 módulos del sistema.
 """
 
+from functools import partial
+
 import crypto
 
 def get_final_votes(blockchain):
@@ -10,7 +12,8 @@ def get_final_votes(blockchain):
     votes = blockchain.votes
 
     final_tally = []
-    options = list(map(lambda v: v.get("options"), votes))
+
+    options = list(map(lambda x: votes[x].get("options"), create_new_key_dict(votes, "signature")))
 
     vote_tally = crypto.tally_votes(pk, options)
 
@@ -42,6 +45,7 @@ def create_new_key_dict(d_list: [dict], k: object) -> dict:
         try:
             dk = d.pop(k)
         except KeyError:
-            raise ValueError("Clave no común a todos los dict de la lista.")
+            continue
+            #raise ValueError("Clave no común a todos los dict de la lista.")
         new_dict.update({dk: d})
     return new_dict

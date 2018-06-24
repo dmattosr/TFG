@@ -89,6 +89,7 @@ class Blockchain:
         serializable_genesis_block["public_key"] = crypto.serialize_key(serializable_genesis_block["public_key"])
         return serializable_genesis_block
 
+
     def serialize(self):
         return json.dumps([self.serialize_genesis_block()] + self.blocks[1:])
 
@@ -120,8 +121,8 @@ class Blockchain:
        	return self.blocks[-1]["index"] + 1
    
     def hash(self, block):
-        if block ==  self.blocks[0]:
-            return self.serialize_genesis_block()
+        if block == self.blocks[0]:
+            return sha256hash(json.dumps(self.serialize_genesis_block()))
         block_info = json.dumps(block, sort_keys=True)
         return sha256hash(block_info)
 
