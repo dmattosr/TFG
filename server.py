@@ -165,8 +165,9 @@ def cast():
     vote_ticket = dict(
         options=options,
         proofs=proofs,
-        signature=hashlib.sha256(request.remote_addr.encode()).hexdigest()
+        signature=hashlib.sha256(request.remote_addr.encode()+request.user_agent.string.encode()).hexdigest()
     )
+    print("\n\n", vote_ticket, "\n\n")
     chain.create_vote(**vote_ticket)
     #broadcast_vote(**vote_ticket)
     update_chains()
