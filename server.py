@@ -41,6 +41,7 @@ from utils import get_final_votes
 
 publish_queue = []
 
+
 LOGGER_NAME = "Flask server"
 LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
 logger = logging.getLogger(LOGGER_NAME)
@@ -131,7 +132,7 @@ def monitor():
 
 @app.route("/elections")
 def elections():
-    return render_template("elections.html", elections=get_ids_for_template(chain_ring), title="ELECCIONES EN CURSO")
+    return render_template("elections.html", elections=zip(get_ids_for_template(chain_ring), get_times_for_template(chain_ring)), title="ELECCIONES EN CURSO")
 
 from utils import create_new_key_dict
 
@@ -186,12 +187,19 @@ def broadcast_vote(options, proofs, signature):
         }).encode())
     socket.close()
 
-               
+def get_times_for_template(ring):
+    start_times = []
+    end_times = []
+    for election_id in ring:
+        start_times.append(human_readable_time(ring.get(election_id).start_time))
+        end_times.append(human_readable_time(ring.get(election_id).end_time))
+    return zip(start_times, end_times)
 
 def get_ids_for_template(ring):
     names = []
     election_ids = []
     crc_ids = []
+
     for election_id in ring:
         election_ids.append(election_id)
         crc_ids.append(zlib.crc32(str(election_id).encode()))
@@ -321,6 +329,9 @@ def run_proof_of_work():
         eventlet.sleep(3)
 
 socketio.start_background_task(target=run_proof_of_work)
+
+def human_readable_time(secs):
+    return time.strftime("%d/%m/%Y %H:%M:%S", time.localtime(secs))
 
 @socketio.on("message")
 def log_message(message):
