@@ -16,6 +16,7 @@ import eventlet
 #: tanto se tiene que ejecutar antes de importar alguna otra cosa.
 eventlet.monkey_patch()
 
+import hashlib
 import json
 import logging
 import os
@@ -84,10 +85,8 @@ chain_ring = load_blockchain(CHAIN_RING_FILE)
 finished_chain_ring = load_blockchain(FINISHED_CHAIN_RING_FILE)
 
 def save_chain_ring(ring, filepath):
-    logger.debug("SAVING CHAIN...")
     with open(filepath, "w") as f:
         json.dump({chain_id: ring[chain_id].serialize() for chain_id in ring}, f)
-    logger.debug("CHAIN SAVED")
 
 
 app = Flask(__name__)
@@ -96,9 +95,7 @@ app.config.DEBUG = True
 socketio = SocketIO(app, async_mode="eventlet") 
 
 def update_chains():
-    logger.debug("Updating chains.")
     finished_chains = list(filter(lambda c: chain_ring[c].end_time < time.time(), chain_ring))
-    logger.debug(finished_chains)
     finished_chain_ring.update({c: chain_ring.pop(c) for c in finished_chains})
     if list(finished_chains):
         logger.info("LAS ELECCIONES {} HAN ACABADO".format(", ".join([str(c) for c in finished_chains])))
@@ -136,14 +133,24 @@ def monitor():
 def elections():
     return render_template("elections.html", elections=get_ids_for_template(chain_ring), title="ELECCIONES EN CURSO")
 
+from utils import create_new_key_dict
+
 @app.route('/elections/<int:election>')
 def vote(election):
+    election_chain = chain_ring[election]
+    logger.debug("REMOTE ADDR:" +  request.remote_addr)
+    sig = hashlib.sha256(request.remote_addr.encode()).hexdigest()
+    sig_exists = False
+    if sig in create_new_key_dict(election_chain.votes, "signature"):
+        sig_exists = True
     return render_template(
         "options.html",
-        election=chain_ring[election].name,
+        election=election_chain.name,
         checksum=zlib.crc32(str(election).encode()),
-        options=chain_ring[election].options,
-        election_id=election
+        options=election_chain.options,
+        election_id=election,
+        signature=sig,
+        signature_already_exists=sig_exists
     )
 
 @app.route("/cast", methods=("POST",))
@@ -159,14 +166,12 @@ def cast():
     vote_ticket = dict(
         options=options,
         proofs=proofs,
-        signature=1234567890
+        signature=hashlib.sha256(request.remote_addr.encode()).hexdigest()
     )
     chain.create_vote(**vote_ticket)
     #broadcast_vote(**vote_ticket)
     update_chains()
     vote_ticket["election_id"] = election_id
-    print(vote_ticket)
-    print(pformat(vote_ticket))
     return render_template("cast.html", vote_ticket=json.dumps(vote_ticket)) 
 
 def broadcast_vote(options, proofs, signature):

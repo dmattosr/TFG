@@ -38,6 +38,9 @@
                                     <li>Opción escogida: <span id="chosenOption"></span></li>
                                     <li>Firma digital: <code>Una ha sido generada automáticamente</code></li>
                                 </ul>
+                                {% if signature_already_exists %}
+                                <div class="alert alert-critical"><h3><b>CUIDADO:</b> Se ha detectado que usted ya ha votado en esta elección. Volver a votar invalidará su voto anterior</h3></div>
+                                {% endif %}
                                 <b style="font-size: 125%;">¿Está segura que desea continuar con estos datos?</b>
 							</div>
 							<div class="modal-footer">
