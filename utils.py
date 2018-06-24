@@ -12,8 +12,8 @@ def get_final_votes(blockchain):
     votes = blockchain.votes
 
     final_tally = []
-
-    options = list(map(lambda x: votes[x].get("options"), create_new_key_dict(votes, "signature")))
+    sig_votes = create_new_key_dict(votes, "signature")
+    options = list(map(lambda x: sig_votes.get(x).get("options"), sig_votes.keys()))
 
     vote_tally = crypto.tally_votes(pk, options)
 
