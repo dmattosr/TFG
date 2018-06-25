@@ -161,7 +161,6 @@ class Blockchain:
             prev_block = self.blocks[block_i-1]
             block = self.blocks[block_i]
             if not proof_is_valid(prev_block["proof"], self.hash(prev_block), block["proof"]):
-                print("AAAA")
                 return False
             if block["timestamp"] < prev_block["timestamp"]:
                 return False
@@ -200,7 +199,7 @@ class Blockchain:
 
     def get_votes(self):
         votes = [b.get("transactions") for b in self.blocks[1:]]
-        return reduce(lambda x, y: x+y, votes) if votes else []
+        return reduce(lambda x, y: x + y, votes) if votes else []
 
     name = property(get_name)
     public_key = property(get_public_key)
