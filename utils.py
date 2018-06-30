@@ -7,13 +7,17 @@ from functools import partial
 
 import crypto
 
+from pprint import pprint
+
 def get_final_votes(blockchain):
     pk = blockchain.public_key
     votes = blockchain.votes
 
     final_tally = []
     sig_votes = create_new_key_dict(votes, "signature")
+    pprint(sig_votes)
     options = list(map(lambda x: sig_votes.get(x).get("options"), sig_votes.keys()))
+    print(options)
 
     vote_tally = crypto.tally_votes(pk, options)
 
@@ -21,7 +25,7 @@ def get_final_votes(blockchain):
     
     final_tally = []
     for i in decrypted_tally:
-        final_tally.append(crypto.consult_decryption_table({pk.x: crypto.vote_lookup_table(pk, 100)}, pk, i))
+        final_tally.append(crypto.consult_decryption_table({pk.y: crypto.vote_lookup_table(pk, 100)}, pk, i))
 
     return final_tally
 

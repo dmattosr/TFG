@@ -7,29 +7,35 @@
         <div class="container-fluid main-container">
             <div class="content-section">
                 <h1 class="page-header">{{ title }}</h1>
-                <div class="panel-group">
                 {% for election, time in elections %}
-                    <div class="panel panel-primary">
-                        <div class="panel-body">
-                            <div class="row">
-                                <div class="col-md-1 align-center">
-                                    <!--<i class="fa fa-user fa-5x"></i>-->
-                                </div> <!-- .col-md-1 -->
-                                <div class="col-md-10">
-                                    <h1><b>Nombre:</b> {{ election[2] }}</h1>
-                                    <b>ID largo:</b> {{ election[0] }}<br>
-                                    <b>ID corto:</b> {{ election[1] }}<br>
-                                    <b>Tiempo de inicio:</b> {{time[0]}}<br>
-                                    <b>Tiempo de finalización:</b> {{time[1]}}<br>
-                                </div><!-- .col-md-10 -->
-                                <div class="col-md-1 align-center">
-                                    <a href="{{url_for('elections')}}/{{election[0]}}" class="btn btn-primary btn-block">¡Vota!</a>
-                                </div><!-- .col-md-1 -->
-                            </div> <!-- .row -->
-                        </div> <!-- .panel-body -->
-                    </div> <!-- .panel -->
+                    <div class="card card-primary" style="margin: 2% 0">
+						<div class="card-header">
+							Elección
+						</div>
+                        <div class="card-body row">
+                            <div class="col-md-9">
+                                <h1>{{ election[2] }}</h1>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="{{ url_for("elections") }}/{{ election[0] }}" class="btn btn-primary btn-lg" style="width: 100%">VOTA AQUÍ</a>
+                            </div>
+                        </div> <!-- .card-body -->
+						<ul class="list-group list-group-flush">
+							<li class="list-group-item">
+								<b>ID largo:</b> {{ election[0] }}
+							</li>
+							<li class="list-group-item">
+								<b>ID corto:</b> {{ election[1] }}
+							</li>
+							<li class="list-group-item">
+								<b>Tiempo de inicio:</b> {{time[0]}}
+							</li>
+							<li class="list-group-item">
+								<b>Tiempo de finalización:</b> {{time[1]}}
+							</li>
+						</ul>
+                    </div> <!-- .card -->
                 {% endfor %}
-				</div> <!-- .panel-group -->
             </div> <!-- .content-section -->
         </div> <!-- .container-fluid .main-container -->
     </body>

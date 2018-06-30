@@ -1,11 +1,12 @@
 """
-Aquí está el conjunto de funciones de criptografía relacionados a la
-encripción ElGamal homomórfica y un conjunto de utilidades que permiten
-trabajar con ellaa.
+Aquí está el conjunto de funciones de criptografía relacionados a el
+cifrado ElGamal y un conjunto de utilidades que permiten trabajar con
+él.
 """
 
 import hashlib
 import json
+
 from math import ceil, floor, log, sqrt
 from random import SystemRandom
 from time import sleep
@@ -17,73 +18,13 @@ from Crypto import Random
 from Crypto.Random import random
 
 from shamir import make_shares, recover_secret
+from signature import is_valid_signature
 
 """
 -------------------- Utilidades matemáticas --------------------
 Las siguientes son funciones de uso matemático. Son algoritmos
 usados por los protocolos criptográficos.
 """
-def discrete_log(a, b, n):
-    """
-    Resuelve el problema del logaritmo discreto mediante el
-    algoritmo *giant-step baby-step*.
-
-    La definición teórica es: para un Grupo Ciclico G de orden n, con
-    generador a y un elemento b, devuelve un número x satisfaciendo
-    :math:`a^x=b`.
-
-    Esta función está intencionada a ser usada en números pequeños,
-    esto es: en el orden como máximo de los millones, como aquellos
-    que resultan de las votaciones.
-
-    :param a: El generador.
-    :param b: El elemento para el cual se calcula el logaritmo
-        discreto.
-    :param n: El orden del grupo cíclico.
-
-    :returns: El logaritmo discreto de b en el grupo cíclico G.
-    """
-    
-    m = ceil(sqrt(n))
-    trial = []
-    for j in range(0, m):
-        print("(", j, a**j, ")")
-        trial.append((j, a**j))
-
-    a_m = multiplicative_inverse(a**m, n)
-    print("a_m: ", a_m)
-    y = b
-    for i in range(0, m):
-        for first, second in trial:
-            if second == y:
-                return i * m + first
-        y *= a_m
-        print("y: ", y)
-    return "-1"
-
-def multiplicative_inverse(n, modulo):
-    """
-    Computa :math:`n^{-1} \\pmod{m}` usando el algoritmo de Gauss. Solo
-    es válido si el modulo es primo .
-
-    :param n: El número n.
-    :param m: El módulo.
-    :returns: El inverso multiplicativo de :math:`n \\pmod{m}`.
-    :raises ValueError: Si el modulo no es primo.
-    """
-    if not is_prime(modulo):
-        raise ValueError(
-            "El módulo tiene que ser primo"
-        )
-    num = 1
-    denum = n
-    for i in range(modulo):
-        x = ceil(modulo/denum)
-        num = (x * num) % modulo 
-        denum = (x * denum) % modulo
-        if denum == 1:
-            return num
-    return -1
 
 def save_key(key, filepath):
     """
@@ -162,7 +103,7 @@ def encrypt_for_vote(key, options):
     k = generate_k(127)#key.size())
     k_array = [k for i in range(len(options))]
 
-    encrypted_ballot = [key.encrypt(pow(key.g, option), k) for option, k in zip(options, k_array)]
+    encrypted_ballot = [key.encrypt(pow(key.g, option, key.p), k) for option, k in zip(options, k_array)]
     proofs = construct_proof(key, options, encrypted_ballot, k_array)
 
     return encrypted_ballot, proofs
@@ -182,6 +123,9 @@ def construct_proof(key, non_encrypted_ballot, encrypted_ballot, k_array):
     Construye una prueba de cero conocimiento no interactiva con el
     protocolo Chaum-Pedersen disyuntivo (DCP).
 
+    La descripción de este algoritmo se encuentra en 
+    `<https://eprint.iacr.org/2016/765.pdf>`_.
+
     :param encrypted_ballot: La papeleta encriptada.
     :param key: La clave pública de la elección.
 
@@ -196,7 +140,9 @@ def construct_proof(key, non_encrypted_ballot, encrypted_ballot, k_array):
     random = SystemRandom().randint
 
     for v, (a, b), r_bytes in zip(non_encrypted_ballot, encrypted_ballot, k_array):
+
         r = int(r_bytes.hex(), base=16)
+
         if v == 0:
             c1 = random(0, q - 1)
             r0 = random(0, q - 1)
@@ -215,6 +161,7 @@ def construct_proof(key, non_encrypted_ballot, encrypted_ballot, k_array):
             r0 = (r0 + (c0 * r) % q) % q
 
             proofs.append((a0, a1, b0, b1, c0, c1, r0, r1))
+
         elif v == 1:
             c0 = random(0, q - 1)
             r0 = random(0, q - 1)
@@ -234,7 +181,7 @@ def construct_proof(key, non_encrypted_ballot, encrypted_ballot, k_array):
 
     return proofs
 
-def verify_ballot(key, vote):
+def verify_ballot(key, vote, voter_list):
     """
     Verifica una papeleta, esto es: verifica que los textos cifrados
     de las opciones correspondan a 0 o a 1 exclusivamente y que la
@@ -248,14 +195,12 @@ def verify_ballot(key, vote):
         cualquier otro caso.
     """
     valid_proofs = True
+
     for ballot, proof in zip(vote["options"], vote["proofs"]):
       proof_valid = verify_proof(key, ballot, proof)
-      print(proof_valid)
       valid_proofs = valid_proofs and proof_valid
-    print(valid_proofs)
-    # Revisar firma
-    print("\n")
-    valid_signature = True
+
+    valid_signature = valid_signature(vote["signature"], voter_list)
 
     return valid_proofs and valid_signature
 
@@ -409,20 +354,26 @@ def update_decryption_table(decryption_table, key, n_voters=DECRYPTION_TABLE_DEF
     if not key.has_private():
         return None
     if key.x not in decryption_table:
-        decryption_table[key.x] = vote_lookup_table(key, n_voters)
-    return decryption_table[key.x]
+        decryption_table[key.y] = vote_lookup_table(key, n_voters)
+    return decryption_table[key.y]
 
 
 def save_decryption_table(decryption_table, filepath):
-    with open(filepath, "w") as f:
-        json.dump(decryption_table, f)
+    try:
+        with open(filepath, "w") as f:
+            json.dump(decryption_table, f)
+    except:
+        pass
 
 
 def load_decryption_table(decryption_table, filepath):
-    with open(filepath, "r") as f:
-        serialized = json.load(f)
-    return {int(x): serialized[x] for x in serialized}
+    try:
+        with open(filepath, "r") as f:
+            serialized = json.load(f)
+        return {int(y): serialized[y] for y in serialized}
+    except:
+        return {}
 
 
 def consult_decryption_table(decryption_table, key, n):
-    return decryption_table.get(key.x).index(n)
+    return decryption_table.get(key.y).index(n)

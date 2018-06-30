@@ -15,6 +15,9 @@ Bienvenidas y bienvenidos a la página de documentación para mi Trabajo de Fin 
    server
    node
    crypto
+   shamir
+   signature
+   cryptoutils
    blockchain
 
 Índices y tablas

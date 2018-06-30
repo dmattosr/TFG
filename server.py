@@ -1,8 +1,6 @@
 """
-Un servidor en Flask que conecta,
-usando socket.io, con el cliente para hacer una página web actualizable
-en tiempo real.
-
+El servidor en Flask que provee una interfaz con el sistema de
+votación y permite crear votos, 
 .. todo::
 
     - Falta una función generalizada para sanear los mensajes de
@@ -34,24 +32,34 @@ from flask_socketio import SocketIO, emit
 
 import eventlet.green.zmq as zmq
 
-from crypto import (encrypt_for_vote, load_keys,
-        reconstruct_key, load_decryption_table, update_decryption_table, save_decryption_table)
+from crypto import (encrypt_for_vote, load_keys, reconstruct_key,
+        load_decryption_table, update_decryption_table,
+        save_decryption_table)
 from blockchain import Blockchain
-from utils import get_final_votes
-
-publish_queue = []
-
+from utils import get_final_votes, create_new_key_dict
 
 LOGGER_NAME = "Flask server"
 LOGGER_FORMAT = "[%(levelname)s][%(asctime)s][%(name)s] %(message)s"
+
 logger = logging.getLogger(LOGGER_NAME)
 logger.setLevel(logging.DEBUG)
 logging.basicConfig(format=LOGGER_FORMAT)
 
+SERVER_LOG_FILE = "conf/server.log"
+log_handler = logging.FileHandler(SERVER_LOG_FILE)
+log_handler.setFormatter(logging.Formatter(LOGGER_FORMAT))
+logger.addHandler(log_handler)
+
 thread = None
+publish_queue = []
+
 
 DECRYPT_TABLE_FILE = "conf/decrypt_table"
-decrypt_table = load_decryption_table({}, DECRYPT_TABLE_FILE)
+try:
+    decrypt_table = load_decryption_table({}, DECRYPT_TABLE_FILE)
+except:
+    decrypt_table = {}
+
 
 PEER_LIST_FILE = "conf/peers.json"
 try:
@@ -63,39 +71,68 @@ except Exception as e:
     peer_list = []
     logger.debug("No previous peers detected, creating new file at " + PEER_LIST_FILE)
 
-def load_blockchain(path_file):
+
+def load_blockchain(filepath):
+    """
+    Función de ayuda para cargar una serie de *blockchains* desde un
+    fichero y desserializarlas, instanciando los objetos que las
+    representan.
+
+    :param filepath: El fichero desde donde cargar las cadenas.
+
+    :return: una tabla hash con cada blockchain indexada por el id de
+        la elección que representa.
+    """
     try:
-        loaded_chain = json.load(open(path_file))
+        loaded_chain = json.load(open(filepath))
         ring = {}
         for i in list(loaded_chain.keys()):
             # XXX: Resulta que json solo admite strings como keys, entonces
             # hay que convertir la clave a int
             key = int(i)
             ring[key] = Blockchain.construct(json.loads(loaded_chain[i]))
-        logger.debug("Loaded chain ring succesfully from " + path_file)
+        logger.debug("Loaded chain ring succesfully from " + filepath)
         logger.debug("Chain ring: " + repr(list(ring.keys())))
         return ring
     except Exception as e:
         logger.warning(e)
-        logger.debug("No chains detected, creating new file at " + path_file)
+        logger.debug("No chains detected, creating new file at " + filepath)
         return {}
+
+def save_chain_ring(ring, filepath):
+    """
+    Serializa y guarda en un fichero una lista de *blockchains*.
+
+    :param ring: un `dict` con las blockchains
+    :param filepath: El fichero donde guardar las cadenas.
+    """
+    try:
+        with open(filepath, "w") as f:
+            json.dump({chain_id: ring[chain_id].serialize() for chain_id in ring}, f)
+    except:
+        pass
 
 CHAIN_RING_FILE = "conf/chain.json"
 FINISHED_CHAIN_RING_FILE = "conf/fchain.json"
 chain_ring = load_blockchain(CHAIN_RING_FILE) 
 finished_chain_ring = load_blockchain(FINISHED_CHAIN_RING_FILE)
 
-def save_chain_ring(ring, filepath):
-    with open(filepath, "w") as f:
-        json.dump({chain_id: ring[chain_id].serialize() for chain_id in ring}, f)
 
 
 app = Flask(__name__)
 app.config.DEBUG = True
-#app.config['SECRET_KEY'] = 'secret!'
+app.config['SECRET_KEY'] = os.urandom(24)
 socketio = SocketIO(app, async_mode="eventlet") 
 
 def update_chains():
+    """
+    Esta es una función de mantenimiento del servidor que pasa de la
+    lista de elecciones en curso a la lista de elecciones terminadas
+    todas las cadenas cuyo tiempo de finalización hayan acabado.
+
+    También guarda cualquier tabla de consulta de descifrado que haya
+    cambiado.
+    """
     finished_chains = list(filter(lambda c: chain_ring[c].end_time < time.time(), chain_ring))
     finished_chain_ring.update({c: chain_ring.pop(c) for c in finished_chains})
     if list(finished_chains):
@@ -134,7 +171,6 @@ def monitor():
 def elections():
     return render_template("elections.html", elections=zip(get_ids_for_template(chain_ring), get_times_for_template(chain_ring)), title="ELECCIONES EN CURSO")
 
-from utils import create_new_key_dict
 
 @app.route('/elections/<int:election>')
 def vote(election):
@@ -168,7 +204,6 @@ def cast():
         proofs=proofs,
         signature=hashlib.sha256(request.remote_addr.encode()+request.user_agent.string.encode()).hexdigest()
     )
-    print("\n\n", vote_ticket, "\n\n")
     chain.create_vote(**vote_ticket)
     #broadcast_vote(**vote_ticket)
     update_chains()
@@ -208,16 +243,16 @@ def get_ids_for_template(ring):
     return zip(election_ids, crc_ids, names)
 
 @app.route("/api/send", methods=("POST",))
-def send():
+def api_send():
     """
-    .. todo::
-        Un montón de cosas:
+    La función del API que envía votos.
 
-            - Hay que verificar si el voto es correcto, pertenece a una
-              votación en marcha, etc.
-            - Hay que mandar el voto emitido a los nodos una vez se haga
-              esta verificación.
+    Recibe un json del formato:
 
+        {
+            options: [...],
+            proofs: [...],
+            
     """
     logger.debug(pformat(request.args))
     try:
@@ -245,7 +280,7 @@ def send():
         return jsonify({})
 
 @app.route("/api/create", methods=("POST",))
-def create_election():
+def api_create():
     election_data = request.get_json()
     logger.debug(election_data)
     name = election_data.get("name")
@@ -263,10 +298,14 @@ def create_election():
     eventlet.spawn_n(update_decryption_table, decrypt_table, chain_ring[election_id].public_key)
     return jsonify({election_id: chain_ring[election_id].serialize()})
 
+@app.route("api/log", methods=("POST",))
+def api_log():
+    return jsonify(log_handler
+
 @socketio.on("connect")
 def on_connect():
     """
-    Desde que se conecta un usuario se empieza un thread. Dicho hilo
+    Desde que se conecta un usuario se empieza un hilo. Dicho hilo
     corre el nodo zeromq que maneja la comunicación hacia los nodos
     peer.
     """
@@ -318,6 +357,11 @@ def on_connect():
 
 
 def run_proof_of_work():
+    """
+    Corre proof-of-work sobre las *blockchains* conocidas.
+
+    Esta función corre en un hilo propio.
+    """
     logger.debug("STARTED BACKGROUND TASK: PROOF OF WORK")
     while True:
         for chain in chain_ring.values():
@@ -331,6 +375,14 @@ def run_proof_of_work():
 socketio.start_background_task(target=run_proof_of_work)
 
 def human_readable_time(secs):
+    """
+    Convierte tiempo UNIX a un formato de tiempo apropiado para ser
+    mostrado en la página web.
+
+    :param secs: un número de segundos representando tiempo UNIX.
+    
+    :return: una cadena legible por el ser humano.
+    """
     return time.strftime("%d/%m/%Y %H:%M:%S", time.localtime(secs))
 
 @socketio.on("message")

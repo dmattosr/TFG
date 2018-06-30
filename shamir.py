@@ -22,7 +22,7 @@ MERSENNE_PRIME = 2**2203 - 1
 Definimos el número primo a utilizar para la seguridad. Debe ser un
 número primo de Mersenne. Utilizamos el primero mayor que el tamaño de
 nuestra clave. (Ya que nuestra clave es de 2048 bits: :math:`2^{2203}-1
-<2^{2048}`
+>2^{2048}`
 """
 
 def _eval_at(coefficients, x, prime=MERSENNE_PRIME):
@@ -112,7 +112,7 @@ def _lagrange_interpolate(x, x_s, y_s, p):
     una serie de puntos (x, y). Para definir un polinomio de tamaño k
     son necesarios como mínimo k puntos.
 
-    :param x:
+    :param x: 
     :param x_s: Una lista de valores de x
     :param y_s: Una lista de valores de f(x)
     :param p:
@@ -120,7 +120,7 @@ def _lagrange_interpolate(x, x_s, y_s, p):
     :return: El polinomio.
     """
     k = len(x_s)
-    assert k == len(set(x_s)), "points must be distinct"
+    assert k == len(set(x_s))
     PI = lambda vals: reduce(lambda x, y: x*y, vals)
     nums = []  # avoid inexact division
     dens = []
