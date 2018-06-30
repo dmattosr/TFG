@@ -295,7 +295,7 @@ class Blockchain:
 
     def get_votes(self):
         votes = [b.get("transactions") for b in self.blocks[1:]]
-        return reduce(lambda x, y: x+y, votes) if votes else []
+        return reduce(lambda x, y: x + y, votes) if votes else []
 
     name = property(get_name)
     public_key = property(get_public_key)

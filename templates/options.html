@@ -12,13 +12,13 @@
                     <div class="row">
                         {% for option in options %}
                         <div class="alert">
-                        <label class="radio-inline"><input type="radio" value="{{loop.index0}}" name="option" required> {{option}}</label>
+                        <label class="radio-inline"><input type="radio" value="{{loop.index0}}" name="option" checked="true" required>{{option}}</label>
                         </div>
                         {% endfor %}
                     </div>
                     <input hidden name="election_id" value="{{election_id}}">
                 </form>
-                    <button type='button' class="btn btn-primary btn-block" id='botoncito'>VOTAR</button>
+                    <button type='button' class="btn btn-primary btn-block" id='botoncito'>Votar</button>
 				<div id="myModal" class="modal fade">
 					<div class="modal-dialog">
 						<div class="modal-content">

@@ -17,8 +17,6 @@ def get_final_votes(blockchain):
     sig_votes = create_new_key_dict(votes, "signature")
     pprint(sig_votes)
     options = list(map(lambda x: sig_votes.get(x).get("options"), sig_votes.keys()))
-    print(options)
-
     vote_tally = crypto.tally_votes(pk, options)
 
     decrypted_tally = crypto.decrypt_vote_tally(pk, vote_tally)
@@ -39,17 +37,11 @@ def create_new_key_dict(d_list: [dict], k: object) -> dict:
     :param k: El elemento a usar de clave.
 
     :returns: Un nuevo dict.
-
-    :raises ValueError: Si la clave no se encuentra en algún dict de la
-        lista.
     """
     new_dict = {}
-    d_list_c = d_list.copy()
-    for d in d_list_c:
-        try:
-            dk = d.pop(k)
-        except KeyError:
+    for d in d_list:
+        dk = d.get(k)
+        if dk == None:
             continue
-            #raise ValueError("Clave no común a todos los dict de la lista.")
         new_dict.update({dk: d})
     return new_dict
