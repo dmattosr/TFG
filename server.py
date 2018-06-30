@@ -1,11 +1,6 @@
 """
 El servidor en Flask que provee una interfaz con el sistema de
 votación y permite crear votos, 
-.. todo::
-
-    - Falta una función generalizada para sanear los mensajes de
-      descubrimiento y de votación
-
 """
 
 #: eventlet debe ser importado primero
@@ -46,9 +41,13 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(format=LOGGER_FORMAT)
 
 SERVER_LOG_FILE = "conf/server.log"
-log_handler = logging.FileHandler(SERVER_LOG_FILE)
-log_handler.setFormatter(logging.Formatter(LOGGER_FORMAT))
-logger.addHandler(log_handler)
+try:
+    log_handler = logging.FileHandler(SERVER_LOG_FILE)
+    log_handler.setFormatter(logging.Formatter(LOGGER_FORMAT))
+    logger.addHandler(log_handler)
+except:
+    logger.warning("Empezando sin manejador de ficheros para el log: la función"
+                   " de api/log está desactivada para esta sesión.")
 
 thread = None
 publish_queue = []
@@ -247,12 +246,17 @@ def api_send():
     """
     La función del API que envía votos.
 
-    Recibe un json del formato:
+    Recibe un JSON del formato:
+    ::
 
         {
             options: [...],
             proofs: [...],
-            
+            signature: ...
+        }
+    
+    Después de sanear el input y verificar si es correcto, lo envía al
+    los nodos que conozca en la red.
     """
     logger.debug(pformat(request.args))
     try:
@@ -281,6 +285,25 @@ def api_send():
 
 @app.route("/api/create", methods=("POST",))
 def api_create():
+    """
+    La función del API para crear elecciones.
+
+    Acepta una petición POST que envíe un JSON con formato:
+    ::
+
+        {
+            name: ...,
+            start_time: ...,
+            end_time: ...,
+            public_key: ...,
+            voter_list: ...,
+            option_list: ...
+        }
+
+    Con estos datos, crea el blockchain correspondiente, lo distribuye
+    entre los nodos conocidos y empieza a computar la tabla de
+    descifrado para usarla al final de la votación.
+    """
     election_data = request.get_json()
     logger.debug(election_data)
     name = election_data.get("name")
@@ -298,9 +321,15 @@ def api_create():
     eventlet.spawn_n(update_decryption_table, decrypt_table, chain_ring[election_id].public_key)
     return jsonify({election_id: chain_ring[election_id].serialize()})
 
-@app.route("api/log", methods=("POST",))
+@app.route("/api/log", methods=("POST",))
 def api_log():
-    return jsonify(log_handler
+    """
+    Función del API para recibir un log de datos del servidor.
+
+    Acepta una petición en JSON con un sólo item llamado `lines` que
+    especifica el número de mensajes del servidor que devolver.
+    """
+    return jsonify(open(SERVER_LOG_FILE).readlines()[-int(request.lines):])
 
 @socketio.on("connect")
 def on_connect():

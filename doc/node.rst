@@ -5,3 +5,4 @@ Nodo
 
 .. automodule:: node
    :members:
+   :private-members:

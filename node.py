@@ -105,10 +105,6 @@ class Node:
 
     def send_vote(self, election_id, options, signature: int):
         """
-        .. todo::
-            Considerar cambiar la entrada por parámetros con nombre
-            por un dict
-
         Construye un mensaje de votación y lo envía a la cola de
         publicación.
 
@@ -192,9 +188,7 @@ class Node:
     def _publish_thread(self):
         """
         Revisa periódicamente la cola de publicaciones pendientes y las
-        publica a 
-        .. todo::
-            Revisar que no se repitan puertos dentro de los peers
+        publica a los nodos conocidos.
         """
         while self.running:
             if self.publish_queue:
@@ -228,7 +222,17 @@ class Node:
         self.peers.append(peer_info)
 
 
-def sanitize_info(info: dict):
+def sanitize_info(info):
+    """
+    Función auxiliar para asegurarse que la información de peers que
+    reciben los nodos sea correcta.
+
+    :param info: un `dict` que describe un nodo.
+
+    :return: `True` si la info del nodo está bien formada, `False` en
+    cualquier otro caso.
+
+    """
     sanitized_info = {}
 
     # TODO: Verificar si los datos son de tipo correcto

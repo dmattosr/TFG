@@ -47,10 +47,8 @@ class Blockchain:
     @staticmethod
     def construct(blocks):
         """
-        A partir de un conjunto de `dict`s, reconstruye la cadena que
-        representan.
-
-        Utilizado en desserialización.
+        A partir de una lista de bloques en un formato serializado,
+        reconstruye la cadena que representan.
 
         :param blocks: una lista de dicts que representen una
             *blockchain*.

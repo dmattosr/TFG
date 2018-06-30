@@ -21,6 +21,7 @@ Shamir's Secret Sharing
 
 .. automodule:: shamir
    :members:
+   :private-members:
 
 .. _cryptoutils:
 

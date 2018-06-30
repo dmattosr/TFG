@@ -75,12 +75,13 @@ def make_shares(key, minimum, shares, prime=MERSENNE_PRIME):
 def _extended_gcd(a, b):
     """
     Algoritmo para conseguir el minimo común divisor extendido a
-    definición de grupos cíclicos
-    division in integers modulus p means finding the inverse of the
-    denominator modulo p and then multiplying the numerator by this
-    inverse (Note: inverse of A is B such that A*B % p == 1) this can
-    be computed via extended Euclidean algorithm
-    http://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Computation
+    grupos cíclicos mediante el algoritmo extendido de
+    Euclides. Necesaria para la división de números en grupos cíclicos.
+
+    :param a: El primer número
+    :param b: El segundo número
+
+    :return: Los coeficientes :math:`x, y` tal que :math:`ax + by = 1`.
     """
 
     x = 0
@@ -97,10 +98,11 @@ def _extended_gcd(a, b):
 
 def _divmod(num, den, p):
     '''
-    compute num / den modulo prime p
+    Calcula la división :math:`{num\over{den}}\pmod{p}`
 
-    To explain what this means, the return value will be such that
-    the following is true: den * _divmod(num, den, p) % p == num
+    :param num: numerador.
+    :param den: denominador.
+    :param p: módulo.
     '''
     inv, _ = _extended_gcd(den, p)
     return num * inv
@@ -108,14 +110,14 @@ def _divmod(num, den, p):
 
 def _lagrange_interpolate(x, x_s, y_s, p):
     """
-    Utiliza interpolación lagrange para reconstruir un polinomio dada
-    una serie de puntos (x, y). Para definir un polinomio de tamaño k
-    son necesarios como mínimo k puntos.
+    Utiliza interpolación lagrange para reconstruir un polinomio en un
+    campo finito dada una serie de puntos (x, y) y devuelve un término
+    en particular.
 
-    :param x: 
+    :param x: El término que se quiere.
     :param x_s: Una lista de valores de x
     :param y_s: Una lista de valores de f(x)
-    :param p:
+    :param p: Orden del campo finito
 
     :return: El polinomio.
     """
