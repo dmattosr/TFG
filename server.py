@@ -242,6 +242,33 @@ def get_ids_for_template(ring):
     
     return zip(election_ids, crc_ids, names)
 
+TEMPLATES = {
+    "election": {
+        "start_time": "el tiempo de inicio en tiempo UNIX",
+        "end_time": "el tiempo final en tiempo UNIX",
+        "name": "el nombre de la elección",
+        "public_key": {
+            "p": "el orden del grupo de la clave",
+            "g": "el generador",
+            "y": "la componente pública",
+            "x": "OPCIONAL|NO RECOMENDADO: la componente privada de la clave"
+        },
+        "voter_list": "una lista de claves públicas que designa a los votantes",
+        "option_list": "las posibles elecciones del voto"
+    },
+    "vote": {
+        "options": "el texto cifrado de las opciones",
+        "proof": "las pruebas criptográficas",
+        "signature": "la firma digital"
+    },
+    "log": {
+        "lines": "El número de líneas a recibir"
+    }
+}
+@app.route("/api/templates", methods=("POST",))
+def api_templates():
+    return jsonify(TEMPLATES)
+
 @app.route("/api/send", methods=("POST",))
 def api_send():
     """
