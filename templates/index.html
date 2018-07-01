@@ -3,59 +3,9 @@
 		<meta charset="utf-8"/>
         <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
         <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
-        <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
         <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
         <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 
-        <!-- Select2 -->
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css" rel="stylesheet" />
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
-
-        <script type=text/javascript>
-            $(document).ready(function() {
-                $(".select-election").select2();
-            })
-            $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-            $(function() {
-                // SOCKETS
-                // TODO: Cambiar todos los .html por cosas que no se presten
-                // a XSS
-                var socket = io('http://' + document.domain + ':' + location.port);
-                socket.transport = ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'];
-                socket.on('connect', function() {
-                    $('#conn_status').html('<b>Connected!</b>');
-                    socket.emit("message", "CONNECTION ESTABLISHED")
-                });
-                socket.on('error', function() {
-                    $('#conn_status').html('<b>Error</b>');
-                });
-                socket.on('disconnect', function() {
-                    $('#conn_status').html('<b>Closed</b>');
-                });
-                socket.on('json', function(msg) {
-                    $("#placeholder").html("<b>" + JSON.stringify(msg, null, 4) + "</b>")
-                });
-
-                // AJAX
-
-                //alert($SCRIPT_ROOT);
-                $("#vote").bind("click", function(event) {
-                    // TODO: En un futuro url_for dará problemas, ya que no es dinámico
-                    $.getJSON(
-                        '{{ url_for("send") }}',
-                        {
-                            election_id: $('input[name="election-id"]').val(),
-                            option_id: $('input[name="option-id"]').val(),
-                            signature: $('input[name="signature"]').val()
-                        },
-						function(data) {
-							console.log("GET " + JSON.stringify(data, space=4));
-						}
-                    );
-                });
-
-            });
-		</script>
     </head>
     <body>
         <div class="container-fluid main-container">
@@ -63,7 +13,7 @@
             <h2>Escoge una opción</h2>
             <a href="{{url_for('elections')}}" class="btn btn-block btn-primary">Elecciones en curso</a>
             <a href="{{url_for('tally')}}" class="btn btn-block btn-primary">Elecciones finalizadas</a>
-            <a href="{{url_for('monitor')}}" class="btn btn-block btn-primary disabled">Monitorización</a>
+            <a href="{{url_for('monitor')}}" class="btn btn-block btn-primary">Monitorización</a>
             <a href="{{url_for('create')}}" class="btn btn-block btn-primary disabled">Crear votación</a>
         </div>
     </body>

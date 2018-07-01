@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import time
+import re
 import zlib
 
 from multiprocessing import Process
@@ -190,7 +191,6 @@ def vote(election):
 
 @app.route("/cast", methods=("POST",))
 def cast():
-    logger.debug("REQUEST FORM: " + repr(request.form))
     
     option = int(request.form.get("option"))
     election_id = int(request.form.get("election_id"))
@@ -201,12 +201,13 @@ def cast():
     vote_ticket = dict(
         options=options,
         proofs=proofs,
-        signature=hashlib.sha256(request.remote_addr.encode()+request.user_agent.string.encode()).hexdigest()
+        signature=hashlib.sha256(request.remote_addr.encode() + request.user_agent.string.encode()).hexdigest()
     )
     chain.create_vote(**vote_ticket)
     #broadcast_vote(**vote_ticket)
     update_chains()
     vote_ticket["election_id"] = election_id
+    logger.info("Voto emitido: " + str(vote_ticket))
     return render_template("cast.html", vote_ticket=json.dumps(vote_ticket)) 
 
 def broadcast_vote(options, proofs, signature):
@@ -258,7 +259,7 @@ def api_send():
     Después de sanear el input y verificar si es correcto, lo envía al
     los nodos que conozca en la red.
     """
-    logger.debug(pformat(request.args))
+    logger.info(pformat(request.args))
     try:
         election_id = int(request.args.get("election_id", 0, type=int))
         chain = chain_ring.get(election_id)
@@ -305,7 +306,6 @@ def api_create():
     descifrado para usarla al final de la votación.
     """
     election_data = request.get_json()
-    logger.debug(election_data)
     name = election_data.get("name")
     election_id = SystemRandom().randint(0, 2**256-1)
     while election_id in chain_ring:
@@ -319,6 +319,7 @@ def api_create():
     chain_ring[election_id] = Blockchain(start_time, None, end_time, reconstruct_key(public_key), voter_list, option_list, name)
     save_chain_ring(chain_ring, CHAIN_RING_FILE)
     eventlet.spawn_n(update_decryption_table, decrypt_table, chain_ring[election_id].public_key)
+    logger.info("Elección creada: " + name)
     return jsonify({election_id: chain_ring[election_id].serialize()})
 
 @app.route("/api/log", methods=("POST",))
@@ -357,6 +358,7 @@ def on_connect():
             logger.debug("socket is binded")
             while True:
                 try:
+                    emit("json", log_messages_as_json(), broadcast=True)
                     messages = dict(poller.poll(1000))
                     if socket in messages:
                         msg = socket.recv()
@@ -385,6 +387,34 @@ def on_connect():
         thread = True
 
 
+def log_messages_as_json():
+    try:
+        with open(SERVER_LOG_FILE) as f:
+            messages = f.readlines()
+    except:
+        return {}
+
+    regexp = "\[(.+)\]\[(.+)\]\[(.+)\] (.+)"
+    final_json = []
+    for message in messages:
+        rematch = re.match(regexp, message)
+
+        if not rematch:
+            continue
+        
+        level, time, sender, content = [rematch.group(i) for i in (1, 2, 3, 4)]
+        
+        if level != "INFO":
+            continue
+
+        final_json.append({
+            "level": level,
+            "time": time,
+            "sender": sender,
+            "content": content
+        })
+    return final_json     
+
 def run_proof_of_work():
     """
     Corre proof-of-work sobre las *blockchains* conocidas.
@@ -396,7 +426,7 @@ def run_proof_of_work():
         for chain in chain_ring.values():
             idx = chain.create_new_block(chain.proof_of_work()).get("index")
             if idx:
-                logger.debug("BLOQUE (N {}) CREADO EN ELECCIÓN {}".format(
+                logger.info("BLOQUE (N {}) CREADO EN ELECCIÓN {}".format(
                     idx, chain.name))
         update_chains()
         eventlet.sleep(3)
@@ -416,7 +446,7 @@ def human_readable_time(secs):
 
 @socketio.on("message")
 def log_message(message):
-    logger.info("Message received: \"" + message + "\"")
+    logger.debug("Socketio message received: \"" + message + "\"")
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=8000, debug=True) 

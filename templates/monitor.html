@@ -1,0 +1,69 @@
+<html>
+    <head>
+		<meta charset="utf-8"/>
+        <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/socket.io.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/jquery-3.3.1.js') }}"></script>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+
+        <script type=text/javascript>
+            $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+            $(function() {
+                var socket = io('http://' + document.domain + ':' + location.port);
+                socket.transport = ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'];
+                socket.on('connect', function() {
+                    $('#conn_status').html('<b>Connected!</b>');
+                    socket.emit("message", "CONNECTION ESTABLISHED")
+                });
+                socket.on('error', function() {
+                    $('#conn_status').html('<b>Error</b>');
+                });
+                socket.on('disconnect', function() {
+                    $('#conn_status').html('<b>Closed</b>');
+                });
+                socket.on('json', function(msg) { 
+                    $("#messagepanel").html("");
+                    for (m in msg) {
+                        var card = $('<card/>', {
+                                class: 'card card-primary',
+                        });
+                        card.append("<div class='card-header'><b>" + msg[m]["level"] + "</b></div>");
+                        card.append("<div class='card-body'><b>" + msg[m]["content"] + "</b></div>");
+
+                        var ul = $('<ul/>', {
+                            class: 'list-group list-group-flush',
+                        });
+
+                        var li1 = $('<li/>', {
+                            class: 'list-group-item' 
+                        });
+                        li1.html("Emitido por: " + msg[m]["sender"]);
+                        ul.append(li1);
+
+                        var li2 = $('<li/>', {
+                            class: 'list-group-item' 
+                        });
+                        li2.html("Tiempo: " + msg[m]["time"]);
+                        ul.append(li2);
+
+                        card.append(ul);
+
+                        $("#messagepanel").prepend("<br>");
+                        $("#messagepanel").prepend(card);
+                    }
+                });
+            });
+		</script>
+    </head>
+    <body>
+        <div class="container-fluid main-container">
+            <h1>Monitorización</h1>
+            <div id="messagepanel">
+            </div>
+            <div id="test">
+            </div>
+        </div>
+    </body>
+
+</html>
