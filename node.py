@@ -1,7 +1,7 @@
 """
 .. todo::
-    - Quitar el hardcoding de la dirección del servidor de descubrimiento
-    - Eliminar la excepción de interrupción del hilo de mensajes
+    - Quitar el hardcoding de la dirección del servidor de descubrimiento.
+    - Eliminar la excepción de interrupción del hilo de mensajes.
 
 En este fichero se encuentra el nodo comunicativo de la blockchain.
 Estos nodos componen la red P2P, siendo efectivamente los *peers* de
@@ -85,6 +85,8 @@ class Node:
         mediante un socket de tipo *dealer* de ZeroMQ.
 
         :param message: El mensaje a transmitir
+        :param address: La dirección IPv4 donde enviar el mensaje.
+        :param port: El puerto donde enviar el mensaje.
         """
         socket = self.context.socket(zmq.DEALER)
         socket.connect(CONNECT_FORMAT_STR.format(
@@ -98,7 +100,11 @@ class Node:
 
     def send_info(self, address: str, port: int, **kwargs):
         """
-        Envía información sobre sí mismo por la red
+        Envía información serializada de el nodo a la dirección y
+        puerto especificadas.
+
+        :param address: la dirección IPv4
+        :param port: el puerto
         """
         logger.info(json.dumps(self.serialize()).encode())
         self.send_message(b"PEER " + json.dumps(self.serialize()).encode(), address, port)
@@ -218,6 +224,13 @@ class Node:
         self.p.join()
 
     def add_peer(peer_info: dict):
+        """
+        A partir de un mensaje recibido, añade un nodo a la lista de
+        nodos conocidos.
+
+        :param peer_info: la información de un nodo en un `dict` de
+            Python.
+        """
         #XXX: sanitizar y verificar
         self.peers.append(peer_info)
 

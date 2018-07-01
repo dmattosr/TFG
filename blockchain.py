@@ -14,7 +14,7 @@ from random import SystemRandom
 from crypto import reconstruct_key, serialize_key, sha256hash
 
 
-DIFFICULTY = 6
+DIFFICULTY = 4 
 """
 La dificultad de generar un proof válido. Corresponde a la cantidad de
 ceros que se busca tenga el resultado de la función hash sobre la

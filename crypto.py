@@ -236,6 +236,15 @@ def verify_proof(key, ciphertext, proof):
 
 
 def sha256hash(string):
+    """
+    Función auxiliar que devuelve el *hash* SHA256 de una cadena en un
+    formato cómodo de utilizar.
+
+    :param string: la cadena a la que aplicar la función *hash*.
+    
+    :return: el hexadecimal correspondiente a la representación en
+        bits del *hash* SHA256 de la cadena.
+    """
     return hashlib.sha256(string.encode()).hexdigest()
 
 def hash_proof(proof):
@@ -312,25 +321,27 @@ def vote_lookup_table(key, n_votes):
     """
     Genera una *lookup table* para el logaritmo discreto a partir de
     una clave. La tabla resultante contiene en cada índice el valor del
-    logaritmo discreto en el grupo cíclico para de la clave.
+    logaritmo discreto para el número correspondiente en el grupo 
+    cíclico de la clave.
 
     :param key: La clave.
     :param n_votes: El número máximo de votos posibles para una misma
         opción. No es necesario calcular para más de esta cantidad.
 
-    :returns: Una lista donde se encuentra los valores de g^i mod p
+    :returns: Una lista donde se encuentra los valores de :math:`g^i mod p`
         para cada i desde 0 hasta el número de votantes. El valor del
         logaritmo discreto para un número x se consigue en el índice x.
     """
-    table = []
-    for x in range(n_votes):
-        table.append(pow(key.g, x, key.p))
-    return table
+    return [pow(key.g, x, key.p) for x in range(n_votes)]
 
 
-def serialize_key(key: ElGamal):
+def serialize_key(key):
     """
-    Devuelve un dict de Python con la información de una clave lista para serializar. Incluye los parámetros de dominio (p, g), la clave pública (y), y de tenerla, la clave privada.
+    Devuelve un dict de Python con la información de una clave lista
+    para serializar. Incluye los parámetros de dominio (p, g), la clave
+    pública (y), y de tenerla, la clave privada.
+
+    :param key: el objeto de clave a serializar
 
     :returns: un `dict` con la información de la clave.
     """
