@@ -243,8 +243,7 @@ def sanitize_info(info):
     :param info: un `dict` que describe un nodo.
 
     :return: `True` si la info del nodo está bien formada, `False` en
-    cualquier otro caso.
-
+        cualquier otro caso.
     """
     sanitized_info = {}
 

@@ -145,35 +145,62 @@ update_chains()
 
 @app.route("/")
 def index():
+    """
+    Ruta Flask:  ``/``.
+
+    La ruta base de la aplicación.
+    """
     return render_template("index.html")
 
 @app.route("/tally")
 def tally():
+    """
+    Ruta Flask:  ``/tally``.
+
+    Describe las elecciones finalizadas a las que se puede hacer un recuento.
+    """
     return render_template("tally.html", elections=get_ids_for_template(finished_chain_ring), title="ELECCIONES FINALIZADAS")
 
 @app.route("/tally/<int:election_id>")
 def tally_final(election_id):
+    """
+    Ruta Flask:  ``/tally/<int:election_id>``.
+
+    La ruta para el recuento de una única elección.
+    """
     election_chain = finished_chain_ring[election_id]
     return render_template("tally_final.html",
             election=election_chain.name,
             tally = list(zip(election_chain.options, get_final_votes(election_chain)))
             )
 
-@app.route("/create")
-def create():
-    return render_template("index.html")
-
 @app.route("/monitor")
 def monitor():
+    """
+    Ruta Flask:  ``/monitor``.
+
+    La ruta para la monitorización.
+    """
     return render_template("monitor.html")
 
 @app.route("/elections")
 def elections():
+    """
+    Ruta Flask:  ``/elections``.
+
+    La ruta que muestra la lista con las elecciones en curso.
+    """
     return render_template("elections.html", elections=zip(get_ids_for_template(chain_ring), get_times_for_template(chain_ring)), title="ELECCIONES EN CURSO")
 
 
 @app.route('/elections/<int:election>')
 def vote(election):
+    """
+    Ruta Flask:  ``/elections/<int:election>``.
+
+    La ruta que muestra las opciones para una elección en curso y
+    permite votar.
+    """
     election_chain = chain_ring[election]
     sig = hashlib.sha256(request.remote_addr.encode()+request.user_agent.string.encode()).hexdigest()
     sig_exists = False
@@ -191,6 +218,12 @@ def vote(election):
 
 @app.route("/cast", methods=("POST",))
 def cast():
+    """
+    **/cast**: La ruta para enviar la papeleta cifrada.
+
+    .. warning:: En un futuro, implementar con JSCrypto, así no se
+        transmite el voto no cifrado por la red.
+    """
     
     option = int(request.form.get("option"))
     election_id = int(request.form.get("election_id"))
@@ -211,6 +244,14 @@ def cast():
     return render_template("cast.html", vote_ticket=json.dumps(vote_ticket)) 
 
 def broadcast_vote(options, proofs, signature):
+    """
+    Emite una papeleta cifrada a los nodos conocidos en un formato
+    reconocible por ellos.
+
+    :param options: el texto cifrado de la opción escogida.
+    :param proofs: las pruebas DCP.
+    :param signature: la firma digital.
+    """
     socket = zmq.Context().socket(zmq.DEALER)
     for peer in peer_list:
         socket.connect("tcp://{}:{}".format(peer["ip_address"], peer["rep_port"]))
@@ -223,6 +264,14 @@ def broadcast_vote(options, proofs, signature):
     socket.close()
 
 def get_times_for_template(ring):
+    """
+    Devuelve una lista de pares (tiempo de inicio, tiempo final) para las
+    elecciones correspondientes a una lista de blockchains.
+
+    :param ring: el llavero de *blockchains*.
+
+    :return: un objeto ``zip`` de Python con los pares de tiempo.
+    """
     start_times = []
     end_times = []
     for election_id in ring:
@@ -231,6 +280,15 @@ def get_times_for_template(ring):
     return zip(start_times, end_times)
 
 def get_ids_for_template(ring):
+    """
+    Devuelve los identificadores de un conjunto de elecciones junto con
+    una versión corta usando CRC32 para que sea más fácil de identificar
+    una elección para el usuario.
+
+    :param ring: el llavero de *blockchains*.
+
+    :return: una lista de tuplas (nombre, id largo, id corto).
+    """
     names = []
     election_ids = []
     crc_ids = []
@@ -415,6 +473,13 @@ def on_connect():
 
 
 def log_messages_as_json():
+    """
+    Transforma los mensajes de log con su formato propio en objetos
+    JSON para poder ser mostrados por el servicio de monitorización.
+
+    :return: una lista de ``dicts`` de Python que describen los mensajes
+        del log del servidor.
+    """
     try:
         with open(SERVER_LOG_FILE) as f:
             messages = f.readlines()
@@ -473,6 +538,13 @@ def human_readable_time(secs):
 
 @socketio.on("message")
 def log_message(message):
+    """
+    Callback de socketio.
+
+    Graba un mensaje emitido desde el servidor al logger.
+
+    :param message: el mensaje emitido por el servidor.
+    """
     logger.debug("Socketio message received: \"" + message + "\"")
 
 if __name__ == "__main__":
