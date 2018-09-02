@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Sistema de voto electrónico basado en blockchain
-================================================
+Sistema de votación electrónica basado en blockchain
+====================================================
 
 Bienvenidas y bienvenidos a la página de documentación para mi Trabajo de Fin de Grado.
 

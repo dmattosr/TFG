@@ -143,6 +143,43 @@ def update_chains():
 
 update_chains()
 
+
+def log_messages_as_json():
+    """
+    Transforma los mensajes de log con su formato propio en objetos
+    JSON para poder ser mostrados por el servicio de monitorización.
+
+    :return: una lista de ``dicts`` de Python que describen los mensajes
+        del log del servidor.
+    """
+    try:
+        with open(SERVER_LOG_FILE) as f:
+            messages = f.readlines()
+    except:
+        return {}
+
+    regexp = "\[(.+)\]\[(.+)\]\[(.+)\] (.+)"
+    final_json = []
+    for message in messages:
+        rematch = re.match(regexp, message)
+
+        if not rematch:
+            continue
+        
+        level, time, sender, content = [rematch.group(i) for i in (1, 2, 3, 4)]
+        
+        if level != "INFO":
+            continue
+
+        final_json.append({
+            "level": level,
+            "time": time,
+            "sender": sender,
+            "content": content
+        })
+    return final_json     
+
+
 @app.route("/")
 def index():
     """
@@ -429,83 +466,54 @@ def on_connect():
     if not thread:
         @copy_current_request_context
         def f():
-            logger.debug("Binding socket...")
-            context = zmq.Context()
-
-            socket = context.socket(zmq.REP)
-            socket.bind("{}://{}:{}".format("tcp", "*", 5560))
-            poller = zmq.Poller()
-            poller.register(socket, zmq.POLLIN)
-
-            pub_socket = context.socket(zmq.PUB)
-            pub_socket.bind("{}://{}:{}".format("tcp", "*", 5561))
-
-            logger.debug("socket is binded")
             while True:
-                try:
-                    emit("json", log_messages_as_json(), broadcast=True)
-                    messages = dict(poller.poll(1000))
-                    if socket in messages:
-                        msg = socket.recv()
-                        logger.debug("Received message on REP socket " + msg.decode())
-                        socket.send(b"READY")
-                        msg_header = msg.decode()[:4]
-                        msg_dict = json.loads(msg.decode()[5:])
-                        # aquí iría un "switch" para cada posible header
-                        # este es solo para el header PEER
-                        if msg_header == "PEER" and msg_dict not in peer_list:
-                            with open(PEER_LIST_FILE, "w+") as f:
-                                peer_list.append(msg_dict)
-                                json.dump(peer_list, f)
-                        # XXX: Tendría ahora que haber uno para VOTE
-                        # que es ya el otro importante
-                        if msg_header == "VOTE":
-                            pass
-                        emit("json", msg_dict, broadcast=True)
-                        pub_socket.send(msg)
-                    else:
-                        eventlet.sleep(2)
-                except Exception as e:
-                    logger.warning(e)
-
+                emit("json", log_messages_as_json(), broadcast=True)
+                eventlet.sleep(1)
         socketio.start_background_task(target=f)
         thread = True
 
 
-def log_messages_as_json():
-    """
-    Transforma los mensajes de log con su formato propio en objetos
-    JSON para poder ser mostrados por el servicio de monitorización.
+def handle_nodes():
+    logger.debug("Binding socket...")
+    context = zmq.Context()
 
-    :return: una lista de ``dicts`` de Python que describen los mensajes
-        del log del servidor.
-    """
-    try:
-        with open(SERVER_LOG_FILE) as f:
-            messages = f.readlines()
-    except:
-        return {}
+    socket = context.socket(zmq.REP)
+    socket.bind("{}://{}:{}".format("tcp", "*", 5560))
+    poller = zmq.Poller()
+    poller.register(socket, zmq.POLLIN)
 
-    regexp = "\[(.+)\]\[(.+)\]\[(.+)\] (.+)"
-    final_json = []
-    for message in messages:
-        rematch = re.match(regexp, message)
+    pub_socket = context.socket(zmq.PUB)
+    pub_socket.bind("{}://{}:{}".format("tcp", "*", 5561))
 
-        if not rematch:
-            continue
-        
-        level, time, sender, content = [rematch.group(i) for i in (1, 2, 3, 4)]
-        
-        if level != "INFO":
-            continue
+    logger.debug("socket is binded")
+    while True:
+        try:
+            messages = dict(poller.poll(1000))
+            if socket in messages:
+                msg = socket.recv()
+                logger.info("Received message on REP socket " + msg.decode())
+                socket.send(b"READY")
+                msg_header = msg.decode()[:4]
+                msg_dict = json.loads(msg.decode()[5:])
+                # aquí iría un "switch" para cada posible header
+                # este es solo para el header PEER
+                if msg_header == "PEER" and msg_dict not in peer_list:
+                    with open(PEER_LIST_FILE, "w+") as f:
+                        peer_list.append(msg_dict)
+                        json.dump(peer_list, f)
+                # XXX: Tendría ahora que haber uno para VOTE
+                # que es ya el otro importante
+                if msg_header == "VOTE":
+                    pass
+                pub_socket.send(msg)
+            else:
+                eventlet.sleep(2)
+        except Exception as e:
+            logger.warning(e)
 
-        final_json.append({
-            "level": level,
-            "time": time,
-            "sender": sender,
-            "content": content
-        })
-    return final_json     
+socketio.start_background_task(target=handle_nodes)
+
+
 
 def run_proof_of_work():
     """

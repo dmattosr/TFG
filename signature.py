@@ -4,6 +4,13 @@ from Cryptodome.Hash import SHA256
 from base64 import urlsafe_b64encode
 
 CURVE = "P-256"
+"""
+La curva utilizada para las firmas.
+
+.. warning:: Esta curva no se considera segura pero es la única que
+    implementa la librería utilizada.
+"""
+
 MODE = "fips-186-3"
 FORMAT = "DER"
 
