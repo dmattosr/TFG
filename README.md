@@ -14,3 +14,15 @@ Una serie de protocolos criptográficos que permiten la realización de votacion
 
 ## Aplicación web
 Una aplicación web que corre con Flask.
+
+
+```bash
+apt install libgmp-dev libmpfr-dev libmpc-dev
+
+pip3 install --upgrade pip setuptools==45.2.0
+pip3 install pycryptodomex
+
+pip3 install -r requirements.txt
+
+python server.py runserver
+```
