@@ -15,6 +15,9 @@ Una serie de protocolos criptográficos que permiten la realización de votacion
 ## Aplicación web
 Una aplicación web que corre con Flask.
 
+# Actualización
+
+Probado en Ubuntu 20.04 y python 3.8.5
 
 ```bash
 apt install libgmp-dev libmpfr-dev libmpc-dev
